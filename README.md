@@ -11,6 +11,7 @@ An interactive prototype of the BOP Evolve employee-learning and service-quality
 ## Contents
 
 - [What's included](#whats-included)
+- [One-click start on Windows](#one-click-start-on-windows)
 - [Quick start (Docker)](#quick-start-docker)
 - [Desktop app (Electron)](#desktop-app-electron)
 - [Demo accounts](#demo-accounts)
@@ -40,6 +41,31 @@ An interactive prototype of the BOP Evolve employee-learning and service-quality
 The sign-in screen has an ambient data-flow animation (raw fragments are validated, merged and condensed into answers); it honours the OS "reduce motion" setting.
 
 Architecture: [docs/architecture.md](docs/architecture.md) · Data flow chart: [docs/data-flow.md](docs/data-flow.md) · Schema: [docs/data-dictionary.md](docs/data-dictionary.md)
+
+## One-click start on Windows
+
+Download or clone the repository, then **double-click `bop-evolve.bat`** (or run it from a terminal). It needs only what ships with Windows 10 / 11; everything else is checked and installed for you.
+
+1. **Checks the computer:** Windows version (10 build 19041+ or 11), 64-bit CPU, memory, free disk, hardware virtualization, WSL 2, winget and internet access.
+2. **Installs what is missing**, after asking: WSL 2 and Docker Desktop via `winget` (approve the administrator prompts), then starts Docker Desktop and waits for it. It also switches Docker to Linux containers if needed.
+3. **Prepares the environment:** creates `.env` from `.env.example` with a random local session secret, fixes Windows line endings in the container entrypoint, and uses `.certs\extra-ca.pem` automatically if you work behind a TLS-inspecting proxy.
+4. **Picks free ports automatically.** The web UI prefers 8080 and the API 8000. If a port is busy (another app, or a port Windows reserves for Hyper-V/WSL), the next free one is chosen and saved as `WEB_PORT` / `API_PORT` in `.env`, so the address stays the same next time. If BOP Evolve is already running, its current ports are kept.
+5. **Builds and starts** the containers, waits until every service is healthy, prints the URLs and demo sign-in, and opens the browser.
+
+| Command | What it does |
+|---|---|
+| `bop-evolve.bat` | Everything above (same as `start`). |
+| `bop-evolve.bat desktop` | Same, then installs Node.js LTS if needed and opens the Electron desktop app, already pointed at the detected API port. |
+| `bop-evolve.bat check` | Only runs the system and Docker checks. Installs nothing. |
+| `bop-evolve.bat status` | Shows container status and the URLs in use. |
+| `bop-evolve.bat logs` | Follows the container logs (Ctrl+C to stop). |
+| `bop-evolve.bat stop` | Stops BOP Evolve and keeps the demo data. |
+| `bop-evolve.bat reset` | Deletes the demo data and starts fresh (asks first). |
+| `bop-evolve.bat help` | Shows all commands and options. |
+
+Options: `--yes` answers install/reset questions automatically, `--no-browser` skips opening the browser, `--no-pause` closes the window without waiting for a key press. Each run is logged to `bop-evolve-launcher.log`.
+
+**First-time Docker install:** Windows may ask you to restart after WSL 2 / Docker Desktop are installed, and Docker Desktop asks you to accept its terms on first start. Do that, then run `bop-evolve.bat` again; it continues where it left off. On locked-down PCs where PowerShell runs in Constrained Language Mode, the launcher stops with an explanation; ask IT for an exception or use the manual steps below.
 
 ## Quick start (Docker)
 
@@ -197,6 +223,7 @@ The Bank of Palestine logo is used in the web UI sidebar and sign-in screen (`fr
 
 ```text
 BOP-Evolve/
+├── bop-evolve.bat               # one-click Windows launcher (checks, installs, picks ports, runs)
 ├── docker-compose.yml           # db · backend · worker · frontend
 ├── docker-compose.dev.yml       # hot-reload overrides
 ├── docker-compose.proxy.yml     # optional corporate-proxy CA for builds
@@ -243,7 +270,8 @@ BOP-Evolve/
 | Symptom | Fix |
 |---|---|
 | `/bin/sh^M: bad interpreter` in a container (Windows) | The repo enforces LF via `.gitattributes`; re-clone, or run `git config core.autocrlf false` and `git checkout -- .`. |
-| Port 8080 / 8000 already in use | Set `WEB_PORT` / `API_PORT` in `.env`. Update the desktop server URL if you change `API_PORT`. |
+| Port 8080 / 8000 already in use | `bop-evolve.bat` picks free ports automatically. Manually: set `WEB_PORT` / `API_PORT` in `.env` and update the desktop server URL if you change `API_PORT`. |
+| `bop-evolve.bat` window closes or shows errors | Read `bop-evolve-launcher.log` next to it, or run `bop-evolve.bat check` from a terminal. |
 | Desktop app says "Cannot reach the BOP Evolve server" | Check `docker compose ps`, then use **Server → Test connection** on the sign-in screen. |
 | Overview shows "Simulated event stream: Not reporting" | `docker compose logs worker`; restart with `docker compose restart worker`. |
 | Want fresh demo data | `docker compose down -v && docker compose up -d`. |
