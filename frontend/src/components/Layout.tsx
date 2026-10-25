@@ -1,5 +1,6 @@
 import { NavLink, Outlet } from 'react-router-dom';
 import { isDesktop } from '../api/client';
+import logo from '../assets/logo.png';
 import { useAuth } from '../auth/AuthContext';
 import { useI18n, type MessageKey } from '../i18n';
 import { Icon, type IconName } from './Icon';
@@ -56,9 +57,7 @@ export default function Layout() {
     <div className="shell">
       <aside className="sidebar" aria-label="Main navigation">
         <div className="brand">
-          <div className="brand-mark" aria-hidden>
-            B
-          </div>
+          <img className="brand-logo" src={logo} alt="Bank of Palestine · بنك فلسطين" width={56} height={56} />
           <div>
             <div className="brand-name">{t('app.name')}</div>
             <div className="brand-tag">{t('app.tagline')}</div>

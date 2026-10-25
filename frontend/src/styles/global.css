@@ -161,16 +161,19 @@ h3 {
   gap: 10px;
   padding: 4px 10px 18px;
 }
-.brand-mark {
-  width: 34px;
-  height: 34px;
-  border-radius: 9px;
-  background: var(--brand);
-  color: #fff;
-  display: grid;
-  place-items: center;
-  font-weight: 800;
-  font-size: 15px;
+.brand-logo {
+  width: 56px;
+  height: 56px;
+  flex: none;
+  border-radius: 12px;
+  object-fit: cover;
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.18);
+}
+.hero-logo {
+  width: 148px;
+  height: 148px;
+  border-radius: 28px;
+  box-shadow: 0 10px 40px rgb(0 0 0 / 0.35);
 }
 .brand-name {
   font-weight: 700;

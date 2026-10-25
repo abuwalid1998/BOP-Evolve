@@ -186,6 +186,10 @@ EXTRA_CA_CERT=./.certs/extra-ca.pem docker compose -f docker-compose.yml -f dock
 
 The bundle is only mounted during the build and is not stored in the images.
 
+## Branding
+
+The Bank of Palestine logo is used in the web UI sidebar and sign-in screen (`frontend/src/assets/logo.png`), the browser favicon (`frontend/public/favicon.png`/`.ico`) and the desktop app and installer icon (`desktop/build/icon.png`, 1024 × 1024). To change it, replace those three files and rebuild (`docker compose up -d --build`; `npm --prefix desktop run dist`).
+
 ## Project layout
 
 ```text
