@@ -1,0 +1,22 @@
+# Optional: build behind a TLS-inspecting corporate proxy.
+# Copy a PEM bundle that includes the proxy root CA to ./.certs/extra-ca.pem (git-ignored; paths
+# outside the project need extra BuildKit entitlements), then:
+#   EXTRA_CA_CERT=./.certs/extra-ca.pem docker compose -f docker-compose.yml -f docker-compose.proxy.yml up --build
+# The bundle is mounted only during the build step and is not stored in the images.
+services:
+  backend:
+    build:
+      context: ./backend
+      secrets: [extra_ca]
+  worker:
+    build:
+      context: ./backend
+      secrets: [extra_ca]
+  frontend:
+    build:
+      context: ./frontend
+      secrets: [extra_ca]
+
+secrets:
+  extra_ca:
+    file: ${EXTRA_CA_CERT:?Set EXTRA_CA_CERT to the proxy CA bundle (PEM)}

@@ -12,7 +12,10 @@ RUN groupadd --system app && useradd --system --gid app --home /app app
 
 COPY requirements.txt requirements-dev.txt ./
 ARG INSTALL_DEV=false
-RUN if [ "$INSTALL_DEV" = "true" ]; then pip install -r requirements-dev.txt; else pip install -r requirements.txt; fi
+# Optional CA bundle for TLS-inspecting corporate proxies (see docker-compose.proxy.yml); no-op otherwise.
+RUN --mount=type=secret,id=extra_ca,required=false \
+    if [ -s /run/secrets/extra_ca ]; then export PIP_CERT=/run/secrets/extra_ca; fi; \
+    if [ "$INSTALL_DEV" = "true" ]; then pip install -r requirements-dev.txt; else pip install -r requirements.txt; fi
 
 COPY . .
 RUN chmod +x scripts/entrypoint.sh && chown -R app:app /app
