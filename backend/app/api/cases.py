@@ -28,7 +28,7 @@ from app.models import (
     User,
 )
 from app.models.cases import ACTION_TYPES, AWARENESS_STATES, CONTRIBUTING_FACTORS, SEVERITIES
-from app.services import audit, learning
+from app.services import audit, learning, settings_store
 from app.services.rbac import descendants
 from app.services.scoping import case_condition, case_in_scope, org_path, unit_ref
 
@@ -391,7 +391,7 @@ def review_finding(
         metadata={"from": previous, "to": finding.status, "decision": body.decision},
     )
     db.flush()
-    learning.refresh_generation(db, case.employee_id)
+    learning.refresh_generation(db, case.employee_id, config=settings_store.learning_config(db))
     db.commit()
     return {"id": finding.id, "status": finding.status, "decision_id": decision.id}
 
@@ -453,7 +453,7 @@ def employee_response(
         metadata={"stage": body.stage, "requested_review": body.requested_review},
     )
     db.flush()
-    learning.refresh_generation(db, case.employee_id)
+    learning.refresh_generation(db, case.employee_id, config=settings_store.learning_config(db))
     db.commit()
     return {"id": response.id, "finding_status": finding.status}
 
@@ -557,7 +557,7 @@ def update_action(
         metadata={k: str(v) for k, v in changes.items()},
     )
     db.flush()
-    learning.refresh_generation(db, case.employee_id)
+    learning.refresh_generation(db, case.employee_id, config=settings_store.learning_config(db))
     db.commit()
     return {"id": action.id, "status": action.status}
 

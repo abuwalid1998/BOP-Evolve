@@ -42,6 +42,14 @@ class Settings(BaseSettings):
     retention_cases_days: int = 1095
     retention_audit_days: int = 2555
 
+    # Key that encrypts stored database-connection passwords (Fernet, 32 url-safe
+    # base64 bytes). In development it is derived from JWT_SECRET when empty.
+    config_secret_key: str = ""
+    # Hosts the configuration screen may connect to (comma-separated, wildcards
+    # allowed, e.g. "db.internal,*.bank.local"). Empty = any host in development,
+    # none in production.
+    db_connection_allowed_hosts: str = ""
+
     @field_validator("database_url")
     @classmethod
     def _normalise_driver(cls, value: str) -> str:
@@ -50,6 +58,10 @@ class Settings(BaseSettings):
         if value.startswith("postgres://"):
             return "postgresql+psycopg://" + value.removeprefix("postgres://")
         return value
+
+    @property
+    def db_allowed_host_patterns(self) -> list[str]:
+        return [h.strip().lower() for h in self.db_connection_allowed_hosts.split(",") if h.strip()]
 
     @property
     def cors_origin_list(self) -> list[str]:
@@ -65,6 +77,8 @@ class Settings(BaseSettings):
                 )
             if self.jwt_secret == "local-dev-only-change-me":
                 raise RuntimeError("JWT_SECRET must be provided by the secrets manager in production.")
+            if not self.config_secret_key:
+                raise RuntimeError("CONFIG_SECRET_KEY must be provided by the secrets manager in production.")
 
 
 @lru_cache

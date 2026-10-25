@@ -14,6 +14,10 @@ x-backend-env: &backend-env
   LOG_LEVEL: ${LOG_LEVEL:-INFO}
   CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:5173,http://localhost:8080}
   WORKER_TICK_SECONDS: ${WORKER_TICK_SECONDS:-10}
+  # Encrypts saved database-connection passwords (Configuration screen). Empty = derived from JWT_SECRET (dev only).
+  CONFIG_SECRET_KEY: ${CONFIG_SECRET_KEY:-}
+  # Hosts the Configuration screen may connect to, e.g. "db.internal,*.bank.local". Empty = any (dev) / none (prod).
+  DB_CONNECTION_ALLOWED_HOSTS: ${DB_CONNECTION_ALLOWED_HOSTS:-}
   PRIVACY_MIN_GROUP_EMPLOYEES: ${PRIVACY_MIN_GROUP_EMPLOYEES:-3}
   PRIVACY_MIN_GROUP_CASES: ${PRIVACY_MIN_GROUP_CASES:-10}
   # Employee-level estimates require a separate approval and validation gate.

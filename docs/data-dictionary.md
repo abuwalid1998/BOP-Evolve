@@ -38,6 +38,8 @@ All timestamps are stored in UTC (`timestamp with time zone`) and shown in `Asia
 
 ### Learning method `demo-1.0` (illustrative only)
 
+The parameters below are the defaults. A Super Admin can tune them on the Configuration screen; tuned parameters produce a method version such as `demo-1.0+3f9a0b12`, and each learning version stores the parameters it was evaluated with.
+
 Indicators (weights are mock settings, not approved criteria): understanding 25 %, action completion 25 %, comparable follow-up performance 30 %, exposure-adjusted recurrence trend 20 %. Missing components are excluded and reported as reduced *coverage*.
 
 Sequential gates (cannot be skipped), evaluated over confirmed findings in the last 365 days that were reviewed at least 30 days earlier:
@@ -49,6 +51,13 @@ Sequential gates (cannot be skipped), evaluated over confirmed findings in the l
 | G3 Action | Every finding has agreed actions and all are completed. |
 | G4 Practice | A practised/demonstrated coaching session after the latest review. |
 | G5 Validation | ≥ 5 comparable follow-up cases with ≥ 85 % handled correctly. |
+
+## Configuration
+
+| Table | Key fields | Notes |
+|---|---|---|
+| `app_settings` | `key`, `value` (JSON), `updated_at`, `updated_by` | Runtime overrides; a missing key means the built-in default. Definitions and validation live in `services/settings_store.py`. |
+| `db_connections` | `name`, `engine`, `host`, `port`, `database`, `username`, `password_encrypted` or `password_env`, `sslmode`, `schema_name`, `last_test_*`, `last_check_*` | Saved connection profiles. Passwords are Fernet-encrypted with `CONFIG_SECRET_KEY` or read from a `BOP_DBPASS_*` environment variable; never returned by the API. |
 
 ## Operations
 

@@ -37,10 +37,11 @@ jobs:
       - run: ruff format --check app tests migrations/env.py
       - name: Tests (SQLite)
         run: pytest -q
-      - name: Tests (PostgreSQL)
+      - name: Tests (PostgreSQL, including schema validation against real databases)
         run: pytest -q
         env:
           TEST_DATABASE_URL: postgresql://bop:bop@localhost:5432/bop_test
+          TEST_PG_ADMIN_URL: postgresql://bop:bop@localhost:5432/postgres
       - name: Migrations match models
         run: alembic upgrade head && alembic check
         env:

@@ -1,4 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { api } from '../api/client';
 import ar from './ar';
 import en, { type MessageKey } from './en';
 
@@ -26,14 +27,18 @@ interface I18nValue {
 
 const I18nContext = createContext<I18nValue | null>(null);
 
-function readStoredLang(): Lang {
+function storedLang(): Lang | null {
   try {
     const stored = localStorage.getItem(STORAGE_KEY);
     if (stored === 'ar' || stored === 'en') return stored;
   } catch {
     /* storage unavailable */
   }
-  return navigator.language?.startsWith('ar') ? 'ar' : 'en';
+  return null;
+}
+
+function readStoredLang(): Lang {
+  return storedLang() ?? (navigator.language?.startsWith('ar') ? 'ar' : 'en');
 }
 
 export function I18nProvider({ children }: { children: ReactNode }) {
@@ -41,6 +46,17 @@ export function I18nProvider({ children }: { children: ReactNode }) {
   const dir = lang === 'ar' ? 'rtl' : 'ltr';
   // Western digits keep IDs and technical values readable in mixed Arabic/English text.
   const locale = lang === 'ar' ? 'ar-PS-u-nu-latn' : 'en-GB';
+
+  // Until the person picks a language, follow the default configured by the Super Admin.
+  useEffect(() => {
+    if (storedLang()) return;
+    api
+      .get<{ default_locale: string }>('/api/public/settings')
+      .then((r) => {
+        if (!storedLang() && (r.default_locale === 'ar' || r.default_locale === 'en')) setLangState(r.default_locale);
+      })
+      .catch(() => undefined);
+  }, []);
 
   useEffect(() => {
     document.documentElement.lang = lang;

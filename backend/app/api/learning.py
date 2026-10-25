@@ -19,7 +19,7 @@ from app.models import (
     OrgUnit,
     ServiceCase,
 )
-from app.services import audit, learning
+from app.services import audit, learning, settings_store
 from app.services.rbac import descendants
 from app.services.scoping import employee_condition, employee_in_scope, org_path, unit_ref
 
@@ -135,7 +135,7 @@ def learning_history(
         .order_by(LearningGeneration.version)
     ).all()
     evidence = learning.load_evidence(db, employee.id)
-    live = learning.evaluate(evidence)
+    live = learning.evaluate(evidence, config=settings_store.learning_config(db))
 
     rules = {r.id: r for r in db.scalars(select(MistakeRule))}
     case_by_id = {c.id: c for c in evidence.cases}
@@ -289,7 +289,7 @@ def evaluate_generation(
 ):
     perm = "learning.approve" if principal.has("learning.approve") else "coaching.record"
     employee = _employee_or_404(db, principal, employee_id, perm)
-    generation = learning.refresh_generation(db, employee.id)
+    generation = learning.refresh_generation(db, employee.id, config=settings_store.learning_config(db))
     audit.record(
         db,
         actor_user_id=principal.user.id,
@@ -380,6 +380,6 @@ def record_coaching(
         request_id=principal.request_id,
         metadata={"employee_id": employee.id},
     )
-    learning.refresh_generation(db, employee.id)
+    learning.refresh_generation(db, employee.id, config=settings_store.learning_config(db))
     db.commit()
     return {"id": session.id}

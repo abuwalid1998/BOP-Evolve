@@ -79,6 +79,8 @@ PERMISSIONS: dict[str, str] = {
     "admin.view": "View administration screens",
     "admin.manage": "Change users, roles and integrations",
     "audit.view": "View the audit trail",
+    "config.view": "View system configuration and run database connection / schema checks",
+    "config.manage": "Change system configuration, database connections and apply schema changes",
 }
 
 _MANAGER_BASE = {"dashboard.view", "cases.view", "learning.view", "insights.view", "reports.view"}
@@ -114,7 +116,7 @@ ROLE_PERMISSIONS: dict[str, set[str]] = {
         "ops.view",
         "audit.view",
     },
-    "data_ai_ops": {"dashboard.view", "reports.ops", "ops.view", "ops.manage"},
+    "data_ai_ops": {"dashboard.view", "reports.ops", "ops.view", "ops.manage", "config.view"},
     "analyst": {"dashboard.view", "insights.view", "reports.view"},
 }
 

@@ -1075,6 +1075,146 @@ html[dir='rtl'] .flow-stage:not(:last-child)::after {
   }
 }
 
+
+/* ---------- configuration ---------- */
+.config-db {
+  display: grid;
+  grid-template-columns: minmax(280px, 1fr) minmax(0, 2.2fr);
+  gap: 16px;
+  align-items: start;
+}
+.config-connections {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.config-connection {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  text-align: start;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  color: var(--text);
+  font: inherit;
+  cursor: pointer;
+}
+.config-connection:hover {
+  border-color: var(--border-strong);
+}
+.config-connection .mono {
+  overflow-wrap: anywhere;
+}
+.config-connection.selected {
+  border-color: var(--brand);
+  background: var(--brand-soft);
+}
+.config-kpis {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 8px;
+}
+.config-kpis > div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+.config-kpis strong {
+  font-size: 20px;
+}
+.config-issues {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.config-plan {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+}
+.config-plan > summary {
+  cursor: pointer;
+}
+.config-plan ul {
+  margin: 10px 0 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.config-sql {
+  margin: 6px 0 0;
+  padding: 10px;
+  max-height: 260px;
+  overflow: auto;
+  white-space: pre-wrap;
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  font-size: 12px;
+}
+.config-setting {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.config-error {
+  color: var(--bad);
+  font-size: 12.5px;
+  font-weight: 600;
+}
+.config-savebar {
+  position: sticky;
+  bottom: 12px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: color-mix(in srgb, var(--surface) 92%, transparent);
+  backdrop-filter: blur(12px);
+  box-shadow: var(--shadow);
+}
+input[aria-invalid='true'] {
+  border-color: var(--bad);
+}
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  background: rgb(0 0 0 / 0.45);
+}
+.modal {
+  width: 100%;
+  max-width: 520px;
+}
+@media (max-width: 1100px) {
+  .config-db {
+    grid-template-columns: 1fr;
+  }
+  .config-kpis {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
 @media (max-width: 1100px) {
   .grid-4 {
     grid-template-columns: repeat(2, minmax(0, 1fr));

@@ -47,7 +47,10 @@ BOP Evolve runs as a **server stack in Docker** plus **two interchangeable clien
 | `services/learning.py` | Evidence-gated G0 → G5 evaluation, append-only versions, approval. |
 | `services/simulation.py` | Aggregate, illustrative recurrence scenarios with Beta-posterior uncertainty. |
 | `services/audit.py` | Audit events with metadata redaction. |
-| `api/` | Routers: `auth`, `dashboard`, `cases` (+findings/actions workflow), `learning`, `insights` (+simulations), `ops`, `reports`, `admin`. |
+| `services/settings_store.py` | Typed runtime settings with defaults, validation and overrides in `app_settings`. |
+| `services/dbschema.py` | Connection testing, privilege inspection, Alembic-based schema diff, safe/risky/destructive plan, transactional apply and revision stamping. |
+| `services/secrets.py` | Encryption of stored connection passwords. |
+| `api/` | Routers: `auth`, `dashboard`, `cases` (+findings/actions workflow), `learning`, `insights` (+simulations), `ops`, `reports`, `admin`, `config`. |
 | `pipeline/` | Synthetic catalogue, simulated worker and its healthcheck. |
 | `seed/` | Synthetic data generator (≈270 days of history). |
 

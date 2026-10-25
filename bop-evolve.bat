@@ -1,25 +1,19 @@
 <# : BOP Evolve one-click launcher for Windows. Double-click this file, or run: bop-evolve.bat help
 @echo off
+rem Keep this batch part minimal: no IF tests on variables (cmd expands them before testing, which
+rem breaks on empty values). All logic, argument parsing and the final pause live in PowerShell below.
 setlocal
 title BOP Evolve launcher
 set "BOP_SELF=%~f0"
 set "BOP_ROOT=%~dp0"
 set "BOP_ARGS=%*"
-if defined BOP_ARGS if not "%BOP_ARGS:--no-pause=%"=="%BOP_ARGS%" set "BOP_NO_PAUSE=1"
-where powershell.exe >nul 2>&1
-if errorlevel 1 (
-  echo Windows PowerShell was not found. It is part of Windows 10 and 11; please repair Windows PowerShell.
-  set "RC=1"
-  goto :done
-)
-powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -Command "$global:BopExitCode = 1; if ($ExecutionContext.SessionState.LanguageMode -ne 'FullLanguage') { Write-Host ('[FAIL] PowerShell runs in ' + $ExecutionContext.SessionState.LanguageMode + ' mode (IT policy). The launcher needs FullLanguage mode: ask IT for an exception, or start BOP Evolve manually with: docker compose up -d --build') -ForegroundColor Red; exit 1 }; & ([ScriptBlock]::Create((Get-Content -LiteralPath $env:BOP_SELF -Raw))); exit $global:BopExitCode"
-set "RC=%ERRORLEVEL%"
-:done
-if not defined BOP_NO_PAUSE (
-  echo.
-  pause
-)
-exit /b %RC%
+where powershell.exe >nul 2>&1 || goto :no_powershell
+powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -Command "$global:BopExitCode = 1; if ($ExecutionContext.SessionState.LanguageMode -ne 'FullLanguage') { Write-Host ('[FAIL] PowerShell runs in ' + $ExecutionContext.SessionState.LanguageMode + ' mode (IT policy). The launcher needs FullLanguage mode: ask IT for an exception, or start BOP Evolve manually with: docker compose up -d --build') -ForegroundColor Red; if ($env:BOP_ARGS -notmatch '--no-pause') { $null = Read-Host 'Press Enter to close' }; exit 1 }; & ([ScriptBlock]::Create((Get-Content -LiteralPath $env:BOP_SELF -Raw))); exit $global:BopExitCode"
+exit /b %ERRORLEVEL%
+:no_powershell
+echo Windows PowerShell was not found. It is part of Windows 10 and 11; please repair Windows PowerShell.
+pause
+exit /b 1
 #>
 
 # =============================================================================
@@ -67,6 +61,7 @@ $script:ListeningPorts = $null
 $Command = 'start'
 $AssumeYes = $false
 $NoBrowser = $false
+$NoPause = ($env:BOP_NO_PAUSE -eq '1')
 $argList = @()
 if ($env:BOP_ARGS) { $argList = @($env:BOP_ARGS -split '\s+' | Where-Object { $_ }) }
 $unknownArgs = @()
@@ -74,7 +69,7 @@ foreach ($a in $argList) {
     switch -Regex ($a.Trim('"').ToLowerInvariant()) {
         '^(-y|--yes|/y)$' { $AssumeYes = $true; continue }
         '^--no-browser$' { $NoBrowser = $true; continue }
-        '^--no-pause$' { continue }
+        '^--no-pause$' { $NoPause = $true; continue }
         '^(-h|--help|/\?|help)$' { $Command = 'help'; continue }
         '^(start|desktop|stop|status|logs|reset|check)$' { $Command = $matches[0]; continue }
         default { $unknownArgs += $a }
@@ -445,7 +440,12 @@ function Initialize-Project {
         $rng.GetBytes($bytes)
         $rng.Dispose()
         Set-DotEnvValue 'JWT_SECRET' (-join ($bytes | ForEach-Object { $_.ToString('x2') }))
-        Write-Ok 'Created .env from .env.example with a random local session secret'
+        $keyBytes = New-Object byte[] 32
+        $rng = [Security.Cryptography.RandomNumberGenerator]::Create()
+        $rng.GetBytes($keyBytes)
+        $rng.Dispose()
+        Set-DotEnvValue 'CONFIG_SECRET_KEY' ([Convert]::ToBase64String($keyBytes).Replace('+', '-').Replace('/', '_'))
+        Write-Ok 'Created .env from .env.example with random local secrets'
     } else {
         Write-Ok 'Using the existing .env'
     }
@@ -730,4 +730,10 @@ try {
     $global:BopExitCode = 1
 } finally {
     if ($transcript) { try { Stop-Transcript | Out-Null } catch { } }
+}
+
+# Keep a double-clicked window open so the result can be read.
+if (-not $NoPause) {
+    Write-Host ''
+    try { $null = Read-Host '  Press Enter to close this window' } catch { }
 }
