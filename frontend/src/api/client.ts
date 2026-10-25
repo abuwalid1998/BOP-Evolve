@@ -33,6 +33,8 @@ export class ApiError extends Error {
   constructor(
     public status: number,
     message: string,
+    /** The server's structured `detail` payload, when it is not a plain message. */
+    public detail?: unknown,
   ) {
     super(message);
   }
@@ -85,14 +87,16 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
   }
   if (!response.ok) {
     let message = response.statusText;
+    let detail: unknown;
     try {
       const payload = await response.json();
+      detail = payload.detail;
       if (typeof payload.detail === 'string') message = payload.detail;
       else if (Array.isArray(payload.detail)) message = payload.detail.map((d: { msg: string }) => d.msg).join('; ');
     } catch {
       /* non-JSON error */
     }
-    throw new ApiError(response.status, message);
+    throw new ApiError(response.status, message, detail);
   }
   return (await response.json()) as T;
 }
@@ -100,6 +104,7 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
 export const api = {
   get: <T>(path: string) => request<T>('GET', path),
   post: <T>(path: string, body?: unknown) => request<T>('POST', path, body ?? {}),
+  put: <T>(path: string, body: unknown) => request<T>('PUT', path, body),
   patch: <T>(path: string, body: unknown) => request<T>('PATCH', path, body),
   del: <T>(path: string) => request<T>('DELETE', path),
 };

@@ -14,6 +14,7 @@ An interactive prototype of the BOP Evolve employee-learning and service-quality
 - [One-click start on Windows](#one-click-start-on-windows)
 - [Quick start (Docker)](#quick-start-docker)
 - [Desktop app (Electron)](#desktop-app-electron)
+- [Configuration screen](#configuration-screen)
 - [Demo accounts](#demo-accounts)
 - [Development](#development)
 - [Configuration](#configuration)
@@ -35,6 +36,7 @@ An interactive prototype of the BOP Evolve employee-learning and service-quality
 | **Reports** | Quality trends, common issues, repeat-after-coaching, training effectiveness, awaiting response, overdue actions, data quality, model performance — with CSV export. |
 | **How Data Flows** | Animated chart of raw data → trusted data → information → knowledge → answers, with live counts for your access scope, one example record traced through every stage, and the questions each answer serves. Static version with a diagram: [docs/data-flow.md](docs/data-flow.md). |
 | **Pipeline & Model Health** | Seven simulated pipelines covering every state (`HEALTHY`, `RUNNING`, `DEGRADED`, `FAILED`, `PAUSED`, `STALE`), run history, quarantine, pause/resume; model registry across every lifecycle state with drift / override / latency. |
+| **Configuration** (Super Admin) | Database connections with test, schema validation against the BOP Evolve model, a table-by-table diff with the exact SQL, and transactional apply gated by both the app permission and the database account's privileges. Runtime settings (default language, session length, privacy thresholds, retention, learning-method weights and thresholds) and pipeline schedules/SLAs. Data / AI Ops can view and run checks; only Super Admin can change anything. |
 | **Administration** | Users and scoped role grants, role-permission matrix, policies & versioned rules, integrations (approved/enabled), audit log, configuration. |
 | **Security** | Server-side RBAC with organisational scopes, server-side sessions (logout revokes), audit events with redaction, request IDs, production guard against mock auth, hardened Electron shell. |
 
@@ -126,6 +128,33 @@ Build on the target OS (installers cannot be reliably cross-built):
 
 The **Desktop installers** GitHub Actions workflow (`.github/workflows/desktop.yml`) builds all three on Windows, macOS and Ubuntu runners — run it from the *Actions* tab or push a `v*` tag, then download the artifacts. Builds are unsigned; production distribution must be code-signed with the bank's certificates.
 
+## Configuration screen
+
+**Configuration** (Super Admin; read-only for Data / AI Ops) has four tabs.
+
+- **Database**
+  - The current application database is always listed. Add PostgreSQL connection profiles (host, port, database, user, SSL mode, schema).
+  - Passwords are stored encrypted with `CONFIG_SECRET_KEY`, or referenced from a server environment variable named `BOP_DBPASS_<NAME>`. They are never sent back to the browser.
+  - **Test connection** shows latency, server version, SSL and the account's privileges (superuser, can create tables, which tables it owns, read-only).
+  - **Check schema** compares the database with what BOP Evolve expects. You get a status (valid / differences / empty), the migration revision, a per-table list of differences, unmanaged tables, and the changes needed to make it valid, each with its SQL.
+  - **Changes** are grouped into three categories:
+    - **Safe** (create table / column / index / constraint): applied by default.
+    - **Risky** (type or nullability changes): only with an explicit opt-in.
+    - **Destructive** (drops): reported, never applied.
+  - Each change is marked *Allowed* or *Blocked* based on the database account's privileges.
+  - **Apply** requires the `config.manage` permission, an unchanged plan since the check, and typing the database name. It runs everything in one transaction (nothing changes if any statement fails). When the schema ends up valid it records the migration revision so automatic upgrades keep working. Every test, check and apply is audited.
+- **Application settings**: change values at runtime, see the default for each, and reset to default. Learning-method weights must add up to 1; changing the method creates a new method version so existing history stays traceable.
+- **Pipelines**: schedule, freshness SLA, owner and runbook per pipeline.
+- **Environment**: read-only server settings (environment, sign-in mode, database, expected revision, encryption-key and host-allowlist status).
+
+Server settings for this screen:
+
+| Variable | Purpose |
+|---|---|
+| `CONFIG_SECRET_KEY` | Fernet key (32 url-safe base64 bytes) that encrypts saved connection passwords. Required in production; in development it is derived from `JWT_SECRET`. `bop-evolve.bat` generates one for new installs. |
+| `DB_CONNECTION_ALLOWED_HOSTS` | Comma-separated hosts the screen may connect to, wildcards allowed (`db.internal,*.bank.local`). Empty means any host in development and **none** in production. |
+| `BOP_DBPASS_<NAME>` | Optional per-connection password supplied by the secrets manager instead of storing it. |
+
 ## Demo accounts
 
 All demo accounts share the local-only password **`Evolve#Demo2026`** (configurable with `DEMO_PASSWORD`). The sign-in screen lists them; click one to fill the username.
@@ -205,7 +234,8 @@ Copy `.env.example` to `.env` to override defaults (Compose reads it automatical
 | `WORKER_TICK_SECONDS` | `10` | Simulated stream tick. |
 | `SEED_ON_START` | `true` | Seed synthetic data when the database is empty. |
 | `CORS_ORIGINS` | `http://localhost:5173,http://localhost:8080` | Extra browser origins (`app://bop-evolve` for the desktop app is always allowed). |
-| `PRIVACY_MIN_GROUP_EMPLOYEES` / `PRIVACY_MIN_GROUP_CASES` | `3` / `10` | Insight suppression thresholds. |
+| `PRIVACY_MIN_GROUP_EMPLOYEES` / `PRIVACY_MIN_GROUP_CASES` | `3` / `10` | Default insight suppression thresholds (adjustable at runtime on the Configuration screen). |
+| `CONFIG_SECRET_KEY` / `DB_CONNECTION_ALLOWED_HOSTS` | empty | See [Configuration screen](#configuration-screen). |
 
 **Behind a TLS-inspecting corporate proxy?** If image builds fail with `CERTIFICATE_VERIFY_FAILED`, copy your proxy's CA bundle (PEM) to `.certs/extra-ca.pem` (git-ignored) and build with:
 

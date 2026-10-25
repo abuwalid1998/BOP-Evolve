@@ -6,7 +6,7 @@ import { Badge, Card, ErrorBox, Field, Loading, PageHead, Pager } from '../compo
 import { useApi } from '../hooks/useApi';
 import { useI18n } from '../i18n';
 
-type Tab = 'users' | 'roles' | 'policies' | 'sources' | 'audit' | 'config';
+type Tab = 'users' | 'roles' | 'policies' | 'sources' | 'audit';
 
 interface AdminUser {
   id: string;
@@ -388,18 +388,6 @@ function AuditTab() {
   );
 }
 
-function ConfigTab() {
-  const { data, error } = useApi<Record<string, unknown>>('/api/admin/config');
-  if (!data) return error ? <ErrorBox error={error} /> : <Loading />;
-  return (
-    <Card>
-      <pre className="mono" style={{ margin: 0, whiteSpace: 'pre-wrap' }} dir="ltr">
-        {JSON.stringify(data, null, 2)}
-      </pre>
-    </Card>
-  );
-}
-
 export default function AdminPage() {
   const { t } = useI18n();
   const { can } = useAuth();
@@ -409,7 +397,6 @@ export default function AdminPage() {
     { id: 'policies', label: t('admin.policies'), show: can('admin.view', 'audit.view') },
     { id: 'sources', label: t('admin.sources'), show: can('admin.view') },
     { id: 'audit', label: t('admin.audit'), show: can('audit.view') },
-    { id: 'config', label: t('admin.config'), show: can('admin.view') },
   ];
   const visible = tabs.filter((tab) => tab.show);
   const [tab, setTab] = useState<Tab>(visible[0]?.id ?? 'audit');
@@ -429,7 +416,6 @@ export default function AdminPage() {
       {tab === 'policies' && <PoliciesTab />}
       {tab === 'sources' && <SourcesTab />}
       {tab === 'audit' && <AuditTab />}
-      {tab === 'config' && <ConfigTab />}
     </>
   );
 }

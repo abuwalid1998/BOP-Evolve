@@ -15,6 +15,14 @@ This repository is a **mock-data prototype**. Before any real data is used, the 
 * **No false certainty.** Scenario simulation is aggregate, labelled illustrative, shows 90 % intervals, sample sizes and limitations; employee-level estimates are disabled behind a configuration gate and attempts are audited.
 * **Audit.** Logins (including failures), case and learning-profile views, reviews, responses, actions, approvals, simulations, report views, pipeline controls and admin changes are recorded with request IDs; sensitive metadata keys are redacted.
 
+## Configuration screen safeguards
+
+* Changing configuration, connection profiles or the database schema needs `config.manage` (Super Admin only). Data / AI Ops may view and run read-only checks.
+* Database connections are limited to `DB_CONNECTION_ALLOWED_HOSTS` (none in production until set), use read-only checks, a 5-second connect timeout, and lock and statement timeouts when applying.
+* Passwords are encrypted at rest or referenced from `BOP_DBPASS_*` environment variables only (other server variables, such as `JWT_SECRET`, cannot be referenced). They are never returned to the browser or written to the audit log.
+* Schema changes are shown as SQL before anything runs. Destructive changes are never applied; risky ones need an explicit opt-in. Apply requires the plan to be unchanged since the check plus the typed database name, and runs in a single transaction.
+* Every settings change, connection change, test, check and apply is audited with its before/after values (secrets excluded).
+
 ## Decisions still required (from the specification §22)
 
 1. First pilot process.

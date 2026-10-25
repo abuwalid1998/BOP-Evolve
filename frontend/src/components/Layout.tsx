@@ -21,6 +21,7 @@ export const NAV: NavItem[] = [
   { to: '/reports', label: 'nav.reports', icon: 'reports', permissions: ['reports.view', 'reports.ops'] },
   { to: '/data-flow', label: 'nav.dataFlow', icon: 'flow', permissions: ['dashboard.view'] },
   { to: '/health', label: 'nav.health', icon: 'health', permissions: ['ops.view'] },
+  { to: '/config', label: 'nav.config', icon: 'tune', permissions: ['config.view'] },
   { to: '/admin', label: 'nav.admin', icon: 'admin', permissions: ['admin.view', 'audit.view'] },
 ];
 
