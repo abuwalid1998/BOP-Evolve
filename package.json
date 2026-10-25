@@ -1,0 +1,19 @@
+{
+  "name": "bop-evolve",
+  "private": true,
+  "version": "0.1.0",
+  "description": "BOP Evolve prototype: Docker server stack + Electron desktop client. Cross-platform helper scripts (work in PowerShell, cmd, bash and zsh).",
+  "scripts": {
+    "up": "docker compose up -d --build",
+    "down": "docker compose down",
+    "reset": "docker compose down -v",
+    "logs": "docker compose logs -f",
+    "ps": "docker compose ps",
+    "dev": "docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build",
+    "test:backend": "docker compose -f docker-compose.yml -f docker-compose.dev.yml run --rm --no-deps backend test",
+    "desktop:install": "npm --prefix frontend ci && npm --prefix desktop ci",
+    "desktop:start": "npm --prefix desktop start",
+    "desktop:dev": "npm --prefix desktop run dev",
+    "desktop:dist": "npm --prefix desktop run dist"
+  }
+}
