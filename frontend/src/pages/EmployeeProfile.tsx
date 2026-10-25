@@ -3,6 +3,7 @@ import { Link, useParams } from 'react-router-dom';
 import { api, ApiError } from '../api/client';
 import type { GenerationVersion, LearningHistory, Snapshot, TimelineItem } from '../api/types';
 import { GenBadge, GenerationTrack } from '../components/GenerationTrack';
+import { PageBrief } from '../components/PageBrief';
 import { Badge, Bar, Card, ErrorBox, Field, Loading, PageHead, StatusBadge, Toast } from '../components/ui';
 import { useApi } from '../hooks/useApi';
 import { useI18n, type MessageKey } from '../i18n';
@@ -129,6 +130,7 @@ export default function EmployeeProfilePage() {
           )
         }
       />
+      <PageBrief page="profile" />
       <div className="stack">
         <div className="callout brand">
           <div>

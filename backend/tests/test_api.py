@@ -11,7 +11,7 @@ from tests.conftest import PASSWORD
 def _potential_finding_for(db, employee_id: str) -> Finding:
     """Create a fresh POTENTIAL finding on one of the employee's cases."""
     case = db.scalar(select(ServiceCase).where(ServiceCase.employee_id == employee_id).limit(1))
-    rule = db.scalar(select(MistakeRule).where(MistakeRule.category == case.case_type, MistakeRule.active.is_(True)))
+    rule = db.scalar(select(MistakeRule).where(MistakeRule.category == case.case_type, MistakeRule.status == "active"))
     finding = Finding(
         id=new_id("FND"),
         case_id=case.id,

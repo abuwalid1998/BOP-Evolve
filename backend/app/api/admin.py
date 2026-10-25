@@ -1,4 +1,4 @@
-"""Administration: users, roles, org units, policy catalogue, integrations, audit and config."""
+"""Administration: users, roles, org units, integrations and audit."""
 
 from datetime import datetime
 
@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import Principal, require
 from app.db import get_db
-from app.models import AuditEvent, MistakeRule, OrgUnit, PolicyVersion, Role, SourceSystem, User, UserRole
+from app.models import AuditEvent, OrgUnit, Role, SourceSystem, User, UserRole
 from app.models.org import SCOPE_TYPES
 from app.services import audit
 from app.services.rbac import PERMISSIONS, ROLE_CATALOGUE, ROLE_PERMISSIONS
@@ -112,7 +112,7 @@ def revoke_role(
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Grant not found")
     role = db.get(Role, grant.role_id)
     if user_id == principal.user.id and role.code == "super_admin":
-        raise HTTPException(status.HTTP_409_CONFLICT, "You cannot remove your own Super Admin role")
+        raise HTTPException(status.HTTP_409_CONFLICT, "You cannot remove your own System Administrator role")
     db.delete(grant)
     audit.record(
         db,
@@ -147,38 +147,6 @@ def org_units(
     return [
         {**unit_ref(u), "parent_id": u.parent_id, "active": u.active}
         for u in db.scalars(select(OrgUnit).order_by(OrgUnit.code))
-    ]
-
-
-@router.get("/policies")
-def policies(principal: Principal = Depends(require("admin.view", "audit.view")), db: Session = Depends(get_db)):
-    rules_by_policy: dict[str, list] = {}
-    for r in db.scalars(select(MistakeRule).order_by(MistakeRule.rule_code, MistakeRule.version)):
-        rules_by_policy.setdefault(r.policy_version_id, []).append(
-            {
-                "id": r.id,
-                "code": r.rule_code,
-                "version": r.version,
-                "category": r.category,
-                "severity": r.severity,
-                "description": r.description,
-                "description_ar": r.description_ar,
-                "active": r.active,
-            }
-        )
-    return [
-        {
-            "id": p.id,
-            "code": p.policy_code,
-            "version": p.version,
-            "title": p.title,
-            "title_ar": p.title_ar,
-            "effective_from": _iso(p.effective_from),
-            "effective_to": _iso(p.effective_to),
-            "approved_at": _iso(p.approved_at),
-            "rules": rules_by_policy.get(p.id, []),
-        }
-        for p in db.scalars(select(PolicyVersion).order_by(PolicyVersion.policy_code, PolicyVersion.version))
     ]
 
 

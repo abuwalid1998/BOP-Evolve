@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { downloadCsv } from '../api/client';
 import type { ReportResult } from '../api/types';
 import { Icon } from '../components/Icon';
+import { PageBrief } from '../components/PageBrief';
 import { Card, Empty, ErrorBox, Loading, PageHead } from '../components/ui';
 import { useApi } from '../hooks/useApi';
 import { useI18n, type MessageKey } from '../i18n';
@@ -43,6 +44,7 @@ export default function ReportsPage() {
           </>
         }
       />
+      <PageBrief page="reports" />
       <div className="tabs" role="tablist">
         {(catalogue.data ?? []).map((r) => (
           <button key={r.code} role="tab" aria-selected={r.code === code} className={r.code === code ? 'active' : ''} onClick={() => setCode(r.code)}>

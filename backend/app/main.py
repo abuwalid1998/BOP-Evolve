@@ -5,7 +5,7 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
 
-from app.api import admin, auth, cases, config, dashboard, insights, learning, ops, reports
+from app.api import admin, auth, cases, config, dashboard, insights, learning, ops, reports, rules
 from app.config import get_settings
 from app.db import SessionLocal, utcnow
 
@@ -25,7 +25,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=[*settings.cors_origin_list, DESKTOP_ORIGIN],
     allow_credentials=False,
-    allow_methods=["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allow_headers=["Authorization", "Content-Type", "X-Request-ID"],
     expose_headers=["X-Request-ID", "Content-Disposition"],
 )
@@ -48,7 +48,7 @@ async def request_context(request: Request, call_next):
     return response
 
 
-for module in (auth, dashboard, cases, learning, insights, ops, reports, admin, config):
+for module in (auth, dashboard, cases, learning, insights, ops, reports, admin, config, rules):
     app.include_router(module.router)
 app.include_router(config.public_router)
 

@@ -9,6 +9,7 @@ This repository is a **mock-data prototype**. Before any real data is used, the 
 * **Server-side authorisation.** Every endpoint checks permissions and filters rows by the caller's organisational scope. Out-of-scope records return 404 so their existence is not disclosed.
 * **Least privilege.** Data/AI operations see pipeline and model health but no case content; analysts see aggregates only; employees see only their own records; restricted evidence is hidden from roles without that permission.
 * **Human oversight.** Rules/models only create *potential* findings. A reviewer records the decision with rationale; reviewers cannot review findings about themselves; employees cannot approve their own learning profile.
+* **Four-eyes on rules and policies.** Control rules and policy versions are drafted, submitted and approved as immutable versions; the approver must be a different person from the author and the submitter. Each rule can be backtested on history before approval. Early-warning indicators are monitored in aggregate and never raise a finding against a person. Every rule is readable by all roles so staff know how they are assessed.
 * **Employee voice.** Self-reported awareness, reviewer assessment and demonstrated learning are stored and shown separately. Employees can dispute and request review (status becomes `DISPUTED`).
 * **Immutable history.** Review decisions, model runs and learning generations are append-only; new evaluations create proposed versions that must be approved.
 * **Privacy thresholds.** Team/branch insights suppress groups below 3 employees or 10 cases (configurable).
@@ -17,7 +18,7 @@ This repository is a **mock-data prototype**. Before any real data is used, the 
 
 ## Configuration screen safeguards
 
-* Changing configuration, connection profiles or the database schema needs `config.manage` (Super Admin only). Data / AI Ops may view and run read-only checks.
+* Changing configuration, connection profiles or the database schema needs `config.manage` (System Administrator only). Data / AI Ops may view and run read-only checks.
 * Database connections are limited to `DB_CONNECTION_ALLOWED_HOSTS` (none in production until set), use read-only checks, a 5-second connect timeout, and lock and statement timeouts when applying.
 * Passwords are encrypted at rest or referenced from `BOP_DBPASS_*` environment variables only (other server variables, such as `JWT_SECRET`, cannot be referenced). They are never returned to the browser or written to the audit log.
 * Schema changes are shown as SQL before anything runs. Destructive changes are never applied; risky ones need an explicit opt-in. Apply requires the plan to be unchanged since the check plus the typed database name, and runs in a single transaction.

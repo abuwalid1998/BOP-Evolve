@@ -2,6 +2,7 @@ import { useEffect, useState, type FormEvent } from 'react';
 import { api, ApiError } from '../api/client';
 import { useAuth } from '../auth/AuthContext';
 import { Icon } from '../components/Icon';
+import { PageBrief } from '../components/PageBrief';
 import { Badge, Card, Empty, ErrorBox, Field, Loading, PageHead, Toast } from '../components/ui';
 import { useApi } from '../hooks/useApi';
 import { useI18n, type MessageKey } from '../i18n';
@@ -1181,6 +1182,7 @@ export default function ConfigPage() {
   return (
     <>
       <PageHead title={t('config.title')} subtitle={t('config.subtitle')} />
+      <PageBrief page="config" />
       {!canManage && (
         <div className="callout info" style={{ marginBottom: 16 }}>
           {t('config.readOnly')}

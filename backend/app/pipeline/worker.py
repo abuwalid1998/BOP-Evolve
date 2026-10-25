@@ -2,8 +2,9 @@
 
 Generates a synthetic event stream so the dashboard behaves "live": each
 pipeline runs on its schedule, validates and de-duplicates records,
-quarantines malformed ones, applies the versioned rules to create
-*potential* findings for human review, and updates pipeline / model health.
+quarantines malformed ones, evaluates the active control rules against each
+case's procedural facts to create *potential* findings for human review, and
+updates pipeline / model health.
 
 Never point this worker at production systems.
 """
@@ -36,7 +37,8 @@ from app.models import (
     ServiceHeartbeat,
     SourceSystem,
 )
-from app.pipeline.catalogue import CASE_TYPES, INTERACTION_TYPES, explanation
+from app.pipeline.catalogue import CASE_TYPES, INTERACTION_TYPES, generate_attributes
+from app.services import rules_engine
 
 log = logging.getLogger("bop_evolve.worker")
 CASE_PIPELINES = {"qa-reviews", "crm-cases", "complaints", "call-metadata"}
@@ -57,6 +59,19 @@ def _outcome(profile: str, rng: random.Random) -> str:
     return "failed" if roll < 0.01 else "succeeded"
 
 
+def rule_explanation(rule: MistakeRule, policy: PolicyVersion | None, lang: str) -> str:
+    code = f"{policy.policy_code} v{policy.version}" if policy else "-"
+    if lang == "en":
+        return (
+            f"Control rule {rule.rule_code} v{rule.version} flagged this case under policy {code}. "
+            f"{rule.description} Expected: {rule.expected_action}"
+        )
+    return (
+        f"رصدت قاعدة الضبط {rule.rule_code} الإصدار {rule.version} هذه الحالة بموجب السياسة {code}. "
+        f"{rule.description_ar} المتوقع: {rule.expected_action_ar}"
+    )
+
+
 def _ingest_cases(db: Session, pipeline: Pipeline, run: IngestionRun, rng: random.Random) -> tuple[int, int, int, int]:
     employees = db.execute(
         select(EmployeeProfile.id, EmployeeProfile.org_unit_id, EmployeeProfile.pseudonym, OrgUnit.code)
@@ -65,8 +80,14 @@ def _ingest_cases(db: Session, pipeline: Pipeline, run: IngestionRun, rng: rando
     ).all()
     if not employees:
         return 0, 0, 0, 0
-    rules = {r.category: r for r in db.scalars(select(MistakeRule).where(MistakeRule.active.is_(True)))}
-    rules_engine = db.scalar(select(ModelRegistry).where(ModelRegistry.name == "Procedure deviation rules engine"))
+    active = db.scalars(select(MistakeRule).where(MistakeRule.status == "active").order_by(MistakeRule.rule_code))
+    rules: dict[str, list[MistakeRule]] = {}
+    for r in active:
+        rules.setdefault(r.category, []).append(r)
+    policies = {p.id: p for p in db.scalars(select(PolicyVersion))}
+    rules_engine_model = db.scalar(
+        select(ModelRegistry).where(ModelRegistry.name == "Procedure deviation rules engine")
+    )
     now = utcnow()
     read = rng.randint(2, 8)
     written = rejected = duplicated = 0
@@ -92,8 +113,13 @@ def _ingest_cases(db: Session, pipeline: Pipeline, run: IngestionRun, rng: rando
         case_type = rng.choice(list(CASE_TYPES))
         if unit_code.startswith("CC-") and case_type in ("cash_transaction", "account_opening"):
             case_type = "general_inquiry"
-        rule = rules.get(case_type)
-        policy = db.get(PolicyVersion, rule.policy_version_id) if rule else None
+        case_rules = rules.get(case_type, [])
+        breach_rules = [r for r in case_rules if r.kind == "breach"]
+        policy = policies.get(breach_rules[0].policy_version_id) if breach_rules else None
+        interaction = (
+            "phone" if unit_code == "CC-VOICE" else "chat" if unit_code == "CC-CHAT" else rng.choice(INTERACTION_TYPES)
+        )
+        complexity = rng.choice(("low", "medium", "high"))
         case = ServiceCase(
             id=new_id("CS"),
             source_system_id=pipeline.source_system_id,
@@ -102,21 +128,24 @@ def _ingest_cases(db: Session, pipeline: Pipeline, run: IngestionRun, rng: rando
             org_unit_id=unit_id,
             case_type=case_type,
             ingestion_run_id=run.id,
-            interaction_type="phone"
-            if unit_code == "CC-VOICE"
-            else "chat"
-            if unit_code == "CC-CHAT"
-            else rng.choice(INTERACTION_TYPES),
+            interaction_type=interaction,
             occurred_at=now - timedelta(minutes=rng.randint(1, 50)),
-            complexity_band=rng.choice(("low", "medium", "high")),
+            complexity_band=complexity,
             policy_version_id=policy.id if policy else None,
+            # Simulated procedural facts; about 9% deviate from the documented procedure.
+            attributes=generate_attributes(case_type, interaction, complexity, rng, breach=rng.random() < 0.09),
         )
         db.add(case)
         db.flush()  # evidence and model runs reference the case but have no ORM relationship to order them
         written += 1
-        if rule and rng.random() < 0.09:
-            spec = CASE_TYPES[case_type]
-            confidence = round(rng.uniform(0.6, 0.96), 2)
+        flagged = False
+        for rule in breach_rules:
+            matched, detail = rules_engine.evaluate(rule.conditions, case.attributes)
+            if not matched:
+                continue
+            flagged = True
+            rule_policy = policies.get(rule.policy_version_id)
+            confidence = round(min(0.99, max(0.05, rule.base_confidence + rng.uniform(-0.12, 0.1))), 2)
             db.add(
                 Finding(
                     id=new_id("FND"),
@@ -124,17 +153,31 @@ def _ingest_cases(db: Session, pipeline: Pipeline, run: IngestionRun, rng: rando
                     rule_id=rule.id,
                     status="POTENTIAL",
                     severity=rule.severity,
-                    reason_code=spec["rule"],
-                    observed_action=spec["observed"][0],
-                    observed_action_ar=spec["observed"][1],
-                    explanation=explanation(case_type, policy.version, "en"),
-                    explanation_ar=explanation(case_type, policy.version, "ar"),
+                    reason_code=rule.rule_code,
+                    observed_action=rule.observed_action or rule.description,
+                    observed_action_ar=rule.observed_action_ar or rule.description_ar,
+                    explanation=rule_explanation(rule, rule_policy, "en"),
+                    explanation_ar=rule_explanation(rule, rule_policy, "ar"),
                     detection_method="rule",
-                    model_id=rules_engine.id if rules_engine else None,
+                    model_id=rules_engine_model.id if rules_engine_model else None,
                     confidence=confidence,
+                    matched_conditions=[
+                        {k: d[k] for k in ("field", "op", "value", "actual")} for d in detail if d["passed"]
+                    ],
                 )
             )
             db.flush()
+            if rules_engine_model:
+                db.add(
+                    ModelRun(
+                        model_id=rules_engine_model.id,
+                        case_id=case.id,
+                        output_summary=f"potential:{rule.rule_code}",
+                        confidence=confidence,
+                        latency_ms=rng.randint(15, 90),
+                    )
+                )
+        if flagged:
             ref = f"qa_review_form://{key}"
             db.add(
                 EvidenceRef(
@@ -146,16 +189,6 @@ def _ingest_cases(db: Session, pipeline: Pipeline, run: IngestionRun, rng: rando
                     summary="Synthetic evidence pointer — content stays in the source system.",
                 )
             )
-            if rules_engine:
-                db.add(
-                    ModelRun(
-                        model_id=rules_engine.id,
-                        case_id=case.id,
-                        output_summary=f"potential:{spec['rule']}",
-                        confidence=confidence,
-                        latency_ms=rng.randint(15, 90),
-                    )
-                )
     return read, written, rejected, duplicated
 
 

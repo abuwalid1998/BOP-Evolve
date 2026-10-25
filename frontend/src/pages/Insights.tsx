@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import type { InsightGroup } from '../api/types';
+import { PageBrief } from '../components/PageBrief';
 import { Bar, Card, Empty, ErrorBox, Loading, PageHead } from '../components/ui';
 import { useApi } from '../hooks/useApi';
 import { useI18n } from '../i18n';
@@ -43,6 +44,7 @@ export default function InsightsPage() {
           </>
         }
       />
+      <PageBrief page="insights" />
       <div className="stack">
         {data && (
           <div className="callout info">

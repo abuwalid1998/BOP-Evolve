@@ -14,6 +14,7 @@ import {
 } from 'recharts';
 import type { DashboardSummary } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
+import { PageBrief } from '../components/PageBrief';
 import { Badge, Bar, Card, ErrorBox, Kpi, LiveStatus, Loading, PageHead, StatusBadge } from '../components/ui';
 import { useApi } from '../hooks/useApi';
 import { useI18n } from '../i18n';
@@ -32,22 +33,25 @@ export default function OverviewPage() {
   );
 
   const header = (
-    <PageHead
-      title={t('overview.title')}
-      subtitle={t('overview.subtitle')}
-      actions={
-        <>
-          <div className="segmented" role="group" aria-label={t('common.window')}>
-            {WINDOWS.map((w) => (
-              <button key={w} className={w === days ? 'active' : ''} onClick={() => setDays(w)}>
-                {t('overview.window', { n: w })}
-              </button>
-            ))}
-          </div>
-          <LiveStatus updatedAt={updatedAt} stale={stale} />
-        </>
-      }
-    />
+    <>
+      <PageHead
+        title={t('overview.title')}
+        subtitle={t('overview.subtitle')}
+        actions={
+          <>
+            <div className="segmented" role="group" aria-label={t('common.window')}>
+              {WINDOWS.map((w) => (
+                <button key={w} className={w === days ? 'active' : ''} onClick={() => setDays(w)}>
+                  {t('overview.window', { n: w })}
+                </button>
+              ))}
+            </div>
+            <LiveStatus updatedAt={updatedAt} stale={stale} />
+          </>
+        }
+      />
+      <PageBrief page="overview" />
+    </>
   );
   if (!data) return <>{header}{loading ? <Loading /> : <ErrorBox error={error} onRetry={reload} />}</>;
 

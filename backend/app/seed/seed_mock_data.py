@@ -43,8 +43,16 @@ from app.models import (
     User,
     UserRole,
 )
-from app.pipeline.catalogue import ACTION_TEMPLATES, CASE_TYPES, INTERACTION_TYPES, explanation
-from app.services import learning
+from app.pipeline.catalogue import (
+    ACTION_TEMPLATES,
+    CASE_TYPES,
+    DEFAULT_CONDITIONS,
+    INTERACTION_TYPES,
+    RULE_NAMES,
+    explanation,
+    generate_attributes,
+)
+from app.services import learning, rules_engine
 from app.services.rbac import ROLE_CATALOGUE
 from app.services.security import hash_password
 
@@ -222,6 +230,8 @@ class Seeder:
                     effective_to=self.start + timedelta(days=60),
                     owner_unit_id=ops.id,
                     approved_at=self.start - timedelta(days=410),
+                    status="superseded",
+                    created_at=self.start - timedelta(days=420),
                 )
             )
             current = self.add(
@@ -236,6 +246,8 @@ class Seeder:
                     effective_from=self.start + timedelta(days=60),
                     owner_unit_id=ops.id,
                     approved_at=self.start + timedelta(days=50),
+                    status="active",
+                    created_at=self.start + timedelta(days=40),
                 )
             )
             self.policies[case_type] = current
@@ -248,12 +260,23 @@ class Seeder:
                         version=ver,
                         category=case_type,
                         policy_version_id=pol.id,
+                        name=RULE_NAMES[spec["rule"]][0],
+                        name_ar=RULE_NAMES[spec["rule"]][1],
+                        kind="breach",
                         description=spec["description"][0],
                         description_ar=spec["description"][1],
                         expected_action=spec["expected"][0],
                         expected_action_ar=spec["expected"][1],
+                        observed_action=spec["observed"][0],
+                        observed_action_ar=spec["observed"][1],
+                        conditions=DEFAULT_CONDITIONS[spec["rule"]][ver],
                         severity=spec["severity"],
-                        active=pol is current,
+                        base_confidence=0.82,
+                        status="active" if pol is current else "retired",
+                        created_at=pol.created_at,
+                        submitted_at=pol.created_at + timedelta(days=3),
+                        approved_at=pol.approved_at,
+                        retired_at=None if pol is current else current.effective_from,
                     )
                 )
                 self.rules[f"{case_type}:{ver}"] = rule
@@ -377,7 +400,7 @@ class Seeder:
 
     # ---------------------------------------------------------------- people
     def seed_people(self) -> None:
-        self.user("superadmin", "Demo Super Admin", "مدير النظام (تجريبي)", [("super_admin", "global", None)])
+        self.user("superadmin", "Demo System Administrator", "مدير النظام (تجريبي)", [("super_admin", "global", None)])
         self.user(
             "dept.head",
             "Demo Head of Retail",
@@ -416,7 +439,7 @@ class Seeder:
             [("data_ai_ops", "global", None)],
         )
         self.user("analyst", "Demo Read-only Analyst", "محلل للقراءة فقط (تجريبي)", [("analyst", "global", None)])
-        self.user("ops.policy", "Demo Policy Owner", "مالك السياسة (تجريبي)", [])
+        self.user("ops.policy", "Demo Policy Owner", "مالك السياسة (تجريبي)", [("policy_owner", "global", None)])
 
         counter = 1001
         sections = [u for u in self.units.values() if u.unit_type == "section"]
@@ -454,6 +477,13 @@ class Seeder:
         )
         first.user_id = emp_user.id
         self.flush()
+
+        # Reference rules and policies were authored by the policy owner and approved by Compliance.
+        owner, compliance = self.users["ops.policy"], self.users["risk.compliance"]
+        for item in [*self.rules.values(), *self.policies.values()]:
+            item.created_by = item.submitted_by = owner.id
+            item.approved_by = compliance.id
+        self.db.flush()
 
     # ------------------------------------------------------------- activity
     def seed_history(self) -> None:
@@ -508,7 +538,16 @@ class Seeder:
                         created_at=day + timedelta(hours=2),
                     )
                 )
-                if self.rng.random() < rate_by_type[case_type]:
+                flagged = self.rng.random() < rate_by_type[case_type]
+                # Separate generator so the facts do not shift the main synthetic stream.
+                case.attributes = generate_attributes(
+                    case_type,
+                    case.interaction_type,
+                    case.complexity_band,
+                    random.Random(f"attrs:{case.source_case_key}"),
+                    breach=flagged,
+                )
+                if flagged:
                     learned = self._seed_finding(
                         case, policy, is_old_policy, profile, lead, reviewer, hr, policy_owner, responsiveness
                     )
@@ -545,6 +584,7 @@ class Seeder:
                 detection_method=method,
                 model_id=model.id,
                 confidence=confidence,
+                matched_conditions=rules_engine.matched_detail(rule.conditions, case.attributes),
                 created_at=created,
             )
         )

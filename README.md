@@ -26,23 +26,26 @@ An interactive prototype of the BOP Evolve employee-learning and service-quality
 
 | Area | Implementation |
 |---|---|
-| **Overview** | Reviewed interactions, finding statuses, recurrence after follow-up, awareness distribution, action completion, G0–G5 distribution, weekly trend, pipeline/model health, last successful ingestion, worker heartbeat. Live refresh with last-updated / stale indicators. |
-| **Mistake Explorer** | Filter by status, category, severity, org unit, dates, ID/pseudonym. Case detail with evidence pointers, applicable policy version, expected vs observed action, rule/model output, confidence, limitations. |
-| **"Did the employee know?"** | Three separate states: self-reported awareness (before/after feedback), reviewer assessment (policy clear? evidence supports? system issue?), demonstrated learning (comparable follow-up cases). |
-| **Workflow** | Reviewer decisions (confirm / amend / uphold dispute / dismiss), employee response & dispute, improvement actions with owners, due dates and completion evidence. |
-| **Employee Learning** | Versioned, evidence-gated G0 → Gx profile; live evaluation with indicator breakdown, coverage, gaps and warnings; immutable version history; approval of proposed versions; coaching sessions; dated timeline. |
-| **Team & Branch Insights** | Department / region / branch / section aggregates with privacy suppression and systemic-cause share. |
-| **Future Scenarios** | Aggregate, illustrative recurrence estimates per intervention with 90 % intervals, sample sizes and limitations. Employee-level estimates disabled behind an approval gate. |
-| **Reports** | Quality trends, common issues, repeat-after-coaching, training effectiveness, awaiting response, overdue actions, data quality, model performance — with CSV export. |
-| **How Data Flows** | Animated chart of raw data → trusted data → information → knowledge → answers, with live counts for your access scope, one example record traced through every stage, and the questions each answer serves. Static version with a diagram: [docs/data-flow.md](docs/data-flow.md). |
-| **Pipeline & Model Health** | Seven simulated pipelines covering every state (`HEALTHY`, `RUNNING`, `DEGRADED`, `FAILED`, `PAUSED`, `STALE`), run history, quarantine, pause/resume; model registry across every lifecycle state with drift / override / latency. |
-| **Configuration** (Super Admin) | Database connections with test, schema validation against the BOP Evolve model, a table-by-table diff with the exact SQL, and transactional apply gated by both the app permission and the database account's privileges. Runtime settings (default language, session length, privacy thresholds, retention, learning-method weights and thresholds) and pipeline schedules/SLAs. Data / AI Ops can view and run checks; only Super Admin can change anything. |
-| **Administration** | Users and scoped role grants, role-permission matrix, policies & versioned rules, integrations (approved/enabled), audit log, configuration. |
+| **Executive Overview** | Reviewed interactions, finding statuses, recurrence after follow-up, awareness distribution, action completion, G0–G5 distribution, weekly trend, pipeline/model health, last successful ingestion, worker heartbeat. Live refresh with last-updated / stale indicators. |
+| **Findings Register** | Filter by status, service type, severity, org unit, dates, ID/pseudonym. Case detail with evidence pointers, applicable policy version, expected behaviour vs observed deviation, the control rule's matched conditions with the facts observed, rule/model output, confidence, limitations. |
+| **"Was the employee aware?"** | Three separate views: the employee's own account (before/after feedback), reviewer assessment (policy clear? evidence supports? system issue?), demonstrated learning (comparable follow-up cases). |
+| **Workflow** | Review decisions (confirm / confirm with amendment / uphold objection / dismiss), employee account & objection, corrective actions with owners, due dates and completion evidence. |
+| **Staff Development** | Versioned, evidence-gated development stages (G0 Baseline → G5 Sustained performance); live evaluation with indicator breakdown, coverage, gaps and warnings; immutable version history; approval of proposed versions; coaching sessions; dated timeline. |
+| **Branch & Unit Performance** | Department / region / branch / section aggregates with privacy suppression and systemic-cause share. |
+| **Intervention Planning** | Aggregate, illustrative recurrence estimates per intervention with 90 % intervals, sample sizes and limitations. Employee-level estimates disabled behind an approval gate. |
+| **Management Reports** | Quality trends, common issues, repeat-after-coaching, training effectiveness, awaiting response, overdue actions, data quality, model performance — with CSV export. |
+| **Policies & Control Rules** | Policy versions and control rules written as plain-language conditions on each case's procedural facts. Draft → submit → approve under the four-eyes principle; backtest on history with a 30/90-day forecast and comparison with the version in force; early-warning indicators that are monitored but never raise findings. Active rules drive the worker. See [docs/rules-engine.md](docs/rules-engine.md). |
+| **How BOP Evolve Works** | Interactive map of the nine-step control loop with animated cases, live volumes, exits (quarantined, compliant, dismissed), a guided tour of one example case, safeguards and a glossary. See [docs/how-it-works.md](docs/how-it-works.md). |
+| **Data & Model Operations** | Seven simulated pipelines covering every state (`HEALTHY`, `RUNNING`, `DEGRADED`, `FAILED`, `PAUSED`, `STALE`), run history, quarantine, pause/resume; model registry across every lifecycle state with drift / override / latency. |
+| **System Configuration** (System Administrator) | Database connections with test, schema validation against the BOP Evolve model, a table-by-table diff with the exact SQL, and transactional apply gated by both the app permission and the database account's privileges. Runtime settings (default language, session length, privacy thresholds, retention, learning-method weights and thresholds) and pipeline schedules/SLAs. Data / AI Ops can view and run checks; only a System Administrator can change anything. |
+| **Administration** | Users and scoped role grants, role-permission matrix, source systems (approved/enabled), audit log, configuration. |
 | **Security** | Server-side RBAC with organisational scopes, server-side sessions (logout revokes), audit events with redaction, request IDs, production guard against mock auth, hardened Electron shell. |
+
+Every page opens with a short brief (purpose, what you will see, what it tells you, who uses it) that each user can collapse. All wording follows one corporate glossary in English and Arabic: [docs/glossary.md](docs/glossary.md).
 
 The sign-in screen has an ambient data-flow animation (raw fragments are validated, merged and condensed into answers); it honours the OS "reduce motion" setting.
 
-Architecture: [docs/architecture.md](docs/architecture.md) · Data flow chart: [docs/data-flow.md](docs/data-flow.md) · Schema: [docs/data-dictionary.md](docs/data-dictionary.md)
+Architecture: [docs/architecture.md](docs/architecture.md) · How it works: [docs/how-it-works.md](docs/how-it-works.md) · Rules engine: [docs/rules-engine.md](docs/rules-engine.md) · Glossary: [docs/glossary.md](docs/glossary.md) · Schema: [docs/data-dictionary.md](docs/data-dictionary.md)
 
 ## One-click start on Windows
 
@@ -130,7 +133,7 @@ The **Desktop installers** GitHub Actions workflow (`.github/workflows/desktop.y
 
 ## Configuration screen
 
-**Configuration** (Super Admin; read-only for Data / AI Ops) has four tabs.
+**System Configuration** (System Administrator; read-only for Data / AI Ops) has four tabs.
 
 - **Database**
   - The current application database is always listed. Add PostgreSQL connection profiles (host, port, database, user, SSL mode, schema).
@@ -161,17 +164,18 @@ All demo accounts share the local-only password **`Evolve#Demo2026`** (configura
 
 | Username | Role | Scope | Sees |
 |---|---|---|---|
-| `superadmin` | Super Admin | Global | Everything, including administration and audit. |
+| `superadmin` | System Administrator | Global | Everything, including administration and audit. |
 | `dept.head` | Department Head | Retail Banking | Aggregates, insights, reports, scenarios (no case content). |
 | `regional.north` | Regional Manager | North Region | Region cases, learning, insights, scenarios. |
 | `branch.n01` | Branch Manager | North Branch 01 | Branch cases, reviews, actions, approvals, coaching, restricted evidence. |
 | `section.n01` | Section Manager | N01 Tellers | Section cases, reviews, actions. |
 | `lead.br-n01-tel` | Team Lead | N01 Tellers | Team cases, actions, coaching. |
-| `employee.demo` | Customer-facing Employee | Own records (`E-1001`) | Own findings, respond/dispute, own actions, own learning profile. |
+| `employee.demo` | Customer Service Employee | Own records (`E-1001`) | Own findings, respond/dispute, own actions, own learning profile. |
 | `hr.ld` | HR / L&D | Global | Learning profiles, approvals, coaching, insights, reports, scenarios. |
 | `risk.compliance` | Risk / Compliance / Audit | Global | Cases, reviews, restricted evidence, reports, model health, audit log. |
 | `data.ops` | Data / AI / IT Ops | Global | Pipeline & model health and ops reports only — no case content. |
-| `analyst` | Read-only Analyst | Global | Aggregated insights and reports only. |
+| `analyst` | Analyst (read-only) | Global | Aggregated insights and reports only. |
+| `ops.policy` | Policy Owner | Global | Drafts and approves policy versions and control rules (never their own); aggregates and reports. |
 
 A good walkthrough: sign in as `employee.demo` and respond to a pending finding → sign in as `branch.n01`, review it and agree an action → back as the employee, complete the action with an evidence reference → as `branch.n01` or `hr.ld`, open the profile and re-evaluate / approve the proposed version. Watch each step appear in the audit log as `superadmin`.
 
@@ -275,7 +279,7 @@ BOP-Evolve/
 ├── desktop/                     # Electron shell + electron-builder config
 │   ├── src/{main,preload,settings}.js
 │   └── electron-builder.yml
-├── docs/                        # architecture, data flow chart, data dictionary, governance
+├── docs/                        # architecture, how it works, rules engine, glossary, data dictionary, governance
 └── .github/workflows/           # CI and desktop installer builds
 ```
 
@@ -283,9 +287,11 @@ BOP-Evolve/
 
 - [x] Mock data is clearly labelled on every screen (persistent banner, API header, CSV exports).
 - [x] Login and logout work; logout revokes the server session; demo credentials are not real.
-- [x] Super Admin and least-privilege role views are represented (11 roles with scopes).
+- [x] System Administrator and least-privilege role views are represented (12 roles with scopes).
 - [x] Arabic/English switching works, including full RTL layout.
-- [x] Each finding shows rationale, policy reference and version.
+- [x] Each finding shows rationale, policy reference and version, and the rule conditions it met.
+- [x] Control rules and policy versions follow a four-eyes approval workflow and can be backtested before approval.
+- [x] Every page carries a bilingual brief, and all terms follow one glossary.
 - [x] Employee awareness is captured separately from reviewer judgement and demonstrated learning.
 - [x] Learning history shows dated, evidence-backed G0–Gx versions (append-only, approval required).
 - [x] Corrective actions have owners, deadlines, status and completion evidence.

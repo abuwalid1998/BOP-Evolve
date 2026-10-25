@@ -3,6 +3,7 @@ import { Link, useParams } from 'react-router-dom';
 import { api, ApiError } from '../api/client';
 import type { CaseDetail, FindingDetail } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
+import { PageBrief } from '../components/PageBrief';
 import { Badge, Card, ErrorBox, Field, Loading, PageHead, StatusBadge, Toast } from '../components/ui';
 import { useApi } from '../hooks/useApi';
 import { useI18n } from '../i18n';
@@ -352,6 +353,38 @@ function FindingCard({ finding, detail, onDone }: { finding: FindingDetail; deta
           <div className="stack" style={{ gap: 10 }}>
             <h3>{t('case.whyMistake')}</h3>
             <p style={{ margin: 0 }}>{pick(finding.explanation, finding.explanation_ar)}</p>
+            {finding.matched_conditions.length > 0 && (
+              <div className="matched-conditions">
+                <h4>{t('case.matchedTitle', { rule: pick(finding.rule.name, finding.rule.name_ar) || finding.rule.code })}</h4>
+                <table>
+                  <thead>
+                    <tr>
+                      <th>{t('case.matchedFact')}</th>
+                      <th>{t('case.matchedRule')}</th>
+                      <th>{t('case.matchedObserved')}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {finding.matched_conditions.map((c) => (
+                      <tr key={c.field + c.op}>
+                        <td>{pick(c.label, c.label_ar)}</td>
+                        <td>
+                          {pick(c.op_label, c.op_label_ar)} {pick(c.value_label ?? '', c.value_label_ar ?? '')}
+                        </td>
+                        <td>
+                          <strong>{pick(c.actual_label ?? '—', c.actual_label_ar ?? '—')}</strong>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                {can('rules.view') && (
+                  <Link to="/rules" className="subtle">
+                    {t('case.matchedOpenRules')}
+                  </Link>
+                )}
+              </div>
+            )}
             <dl className="dl">
               <dt>{t('case.expected')}</dt>
               <dd>{pick(finding.rule.expected_action, finding.rule.expected_action_ar)}</dd>
@@ -520,6 +553,7 @@ export default function CaseDetailPage() {
           </Link>
         }
       />
+      <PageBrief page="case" />
       <div className="stack">
         <div className="grid grid-3">
           <Card title={t('explorer.case')}>

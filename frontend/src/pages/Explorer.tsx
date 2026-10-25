@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { qs } from '../api/client';
 import type { CaseListItem, Paged, UnitRef } from '../api/types';
+import { PageBrief } from '../components/PageBrief';
 import { Card, Empty, ErrorBox, Field, LiveStatus, Loading, PageHead, Pager, StatusBadge } from '../components/ui';
 import { useApi } from '../hooks/useApi';
 import { useI18n } from '../i18n';
@@ -55,6 +56,7 @@ export default function ExplorerPage() {
   return (
     <>
       <PageHead title={t('explorer.title')} subtitle={t('explorer.subtitle')} actions={<LiveStatus updatedAt={updatedAt} stale={stale} />} />
+      <PageBrief page="explorer" />
       <div className="stack">
         <Card>
           <form

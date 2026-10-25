@@ -34,7 +34,7 @@ BOP Evolve runs as a **server stack in Docker** plus **two interchangeable clien
 |---|---|---|
 | `db` | `postgres:16-alpine` | Operational store (named volume `db-data`). |
 | `backend` | `backend/Dockerfile` | Runs `alembic upgrade head`, seeds synthetic data when empty, serves the API. |
-| `worker` | same image, `worker` command | Simulated event stream: runs pipelines on schedule, validates/deduplicates/quarantines records, applies rules to create *potential* findings, updates pipeline/model health and its heartbeat. |
+| `worker` | same image, `worker` command | Simulated event stream: runs pipelines on schedule, validates/deduplicates/quarantines records, evaluates the active control rules on each case's procedural facts to create *potential* findings, updates pipeline/model health and its heartbeat. |
 | `frontend` | `frontend/Dockerfile` | nginx serving the built UI and proxying `/api` to the backend. |
 
 ## Backend modules (`backend/app`)
@@ -50,7 +50,7 @@ BOP Evolve runs as a **server stack in Docker** plus **two interchangeable clien
 | `services/settings_store.py` | Typed runtime settings with defaults, validation and overrides in `app_settings`. |
 | `services/dbschema.py` | Connection testing, privilege inspection, Alembic-based schema diff, safe/risky/destructive plan, transactional apply and revision stamping. |
 | `services/secrets.py` | Encryption of stored connection passwords. |
-| `api/` | Routers: `auth`, `dashboard`, `cases` (+findings/actions workflow), `learning`, `insights` (+simulations), `ops`, `reports`, `admin`, `config`. |
+| `api/` | Routers: `auth`, `dashboard`, `cases` (+findings/actions workflow), `learning`, `insights` (+simulations), `ops`, `reports`, `admin`, `config`, `rules` (policies, control rules, approval workflow, backtest). |
 | `pipeline/` | Synthetic catalogue, simulated worker and its healthcheck. |
 | `seed/` | Synthetic data generator (≈270 days of history). |
 

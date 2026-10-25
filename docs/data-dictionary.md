@@ -18,11 +18,11 @@ All timestamps are stored in UTC (`timestamp with time zone`) and shown in `Asia
 | Table | Key fields | Notes |
 |---|---|---|
 | `source_systems` | `code`, `enabled`, `approved_for_use` | Unapproved sources cannot be enabled or resumed. |
-| `service_cases` | `source_system_id`, `source_case_key`, `employee_id`, `org_unit_id`, `case_type`, `occurred_at`, `policy_version_id` | Unique `(source_system_id, source_case_key)`. No customer content. |
+| `service_cases` | `source_system_id`, `source_case_key`, `employee_id`, `org_unit_id`, `case_type`, `occurred_at`, `policy_version_id`, `attributes` | Unique `(source_system_id, source_case_key)`. No customer content. `attributes` holds the procedural facts the rules evaluate ([rules-engine.md](rules-engine.md)). |
 | `evidence_refs` | `evidence_type`, `secure_reference`, `content_hash`, `access_class` | Pointers only; `restricted` hidden from roles without `evidence.view_restricted`. |
-| `policy_versions` | `policy_code`, `version`, `effective_from/to` | Rule applied is the version effective on the event date. |
-| `mistake_rules` | `rule_code`, `version`, `category`, `severity`, `expected_action(_ar)` | Versioned. |
-| `findings` | `status`, `severity`, `explanation(_ar)`, `confidence`, `detection_method`, `contributing_factor` | Status: `POTENTIAL`, `CONFIRMED`, `AMENDED`, `DISPUTED`, `DISMISSED`. |
+| `policy_versions` | `policy_code`, `version`, `effective_from/to`, `status`, `created_by`, `submitted_by/at`, `approved_by/at`, `review_note` | Status: `draft`, `pending_approval`, `active`, `superseded`, `retired`. Rule applied is the version effective on the event date. |
+| `mistake_rules` | `rule_code`, `version`, `category`, `kind`, `name(_ar)`, `conditions`, `severity`, `base_confidence`, `expected_action(_ar)`, `observed_action(_ar)`, `status`, `created_by`, `submitted_by/at`, `approved_by/at`, `retired_at`, `review_note` | Control rules (UI name). Versioned; `kind` is `breach` or `early_warning`; status `draft`, `pending_approval`, `active`, `retired`; one active version per `rule_code`. |
+| `findings` | `status`, `severity`, `explanation(_ar)`, `confidence`, `detection_method`, `contributing_factor`, `matched_conditions` | Status: `POTENTIAL`, `CONFIRMED`, `AMENDED`, `DISPUTED`, `DISMISSED`. |
 | `employee_responses` | `stage`, `awareness_state`, `understood_after_feedback`, `contextual_factors`, `requested_review` | Self-reported awareness; never inferred. |
 | `review_decisions` | `decision`, `rationale`, `policy_clear`, `evidence_supports`, `system_issue_contributed` | Append-only. |
 | `improvement_actions` | `action_type`, `owner_id`, `due_at`, `status`, `completion_evidence_ref` | Completion requires evidence; completed/cancelled are immutable. |
@@ -38,7 +38,7 @@ All timestamps are stored in UTC (`timestamp with time zone`) and shown in `Asia
 
 ### Learning method `demo-1.0` (illustrative only)
 
-The parameters below are the defaults. A Super Admin can tune them on the Configuration screen; tuned parameters produce a method version such as `demo-1.0+3f9a0b12`, and each learning version stores the parameters it was evaluated with.
+The parameters below are the defaults. A System Administrator can tune them on the System Configuration screen; tuned parameters produce a method version such as `demo-1.0+3f9a0b12`, and each learning version stores the parameters it was evaluated with.
 
 Indicators (weights are mock settings, not approved criteria): understanding 25 %, action completion 25 %, comparable follow-up performance 30 %, exposure-adjusted recurrence trend 20 %. Missing components are excluded and reported as reduced *coverage*.
 
