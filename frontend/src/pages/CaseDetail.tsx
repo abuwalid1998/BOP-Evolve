@@ -242,7 +242,7 @@ function ActionsPanel({
     run(() => api.patch(`/api/actions/${id}`, { status, completion_evidence_ref: evidence[id] || undefined }));
 
   return (
-    <div className="stack" style={{ gap: 10 }}>
+    <div className="stack" style={{ gap: 10 }} data-tour="case-actions">
       <h3>{t('case.actions')}</h3>
       {finding.actions.length === 0 && <span className="subtle">{t('case.noActions')}</span>}
       {finding.actions.map((a) => (
@@ -350,7 +350,7 @@ function FindingCard({ finding, detail, onDone }: { finding: FindingDetail; deta
     >
       <div className="stack">
         <div className="grid grid-2">
-          <div className="stack" style={{ gap: 10 }}>
+          <div className="stack" style={{ gap: 10 }} data-tour="case-why">
             <h3>{t('case.whyMistake')}</h3>
             <p style={{ margin: 0 }}>{pick(finding.explanation, finding.explanation_ar)}</p>
             {finding.matched_conditions.length > 0 && (
@@ -423,7 +423,7 @@ function FindingCard({ finding, detail, onDone }: { finding: FindingDetail; deta
             </div>
           </div>
 
-          <div className="stack" style={{ gap: 10 }}>
+          <div className="stack" style={{ gap: 10 }} data-tour="case-voice">
             <h3>{t('case.awarenessTitle')}</h3>
             <span className="subtle">{t('case.awarenessNote')}</span>
             <div className="card" style={{ padding: 12, boxShadow: 'none' }}>
@@ -509,7 +509,7 @@ function FindingCard({ finding, detail, onDone }: { finding: FindingDetail; deta
         />
 
         {finding.decisions.length > 0 && (
-          <details>
+          <details open data-tour="case-review">
             <summary style={{ cursor: 'pointer', fontWeight: 600 }}>
               {t('case.decisions')} ({finding.decisions.length})
             </summary>

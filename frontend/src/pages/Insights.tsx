@@ -54,7 +54,7 @@ export default function InsightsPage() {
             </div>
           </div>
         )}
-        <Card>
+        <Card tour="insights-table">
           {!data && loading && <Loading />}
           <ErrorBox error={error} onRetry={reload} />
           {data && data.groups.length === 0 && <Empty />}

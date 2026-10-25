@@ -2,8 +2,9 @@
 
 Run: ``python -m app.seed.upgrade`` (the container entrypoint runs it after migrations).
 
-- Adds roles introduced since the database was seeded (e.g. Policy Owner) and grants the
-  demo policy-owner account its role if it has none.
+- Adds roles introduced since the database was seeded (Policy Owner, Chief HR Officer),
+  grants the demo policy-owner account its role if it has none, and creates the demo
+  Chief HR Officer account (``hr.chief``) and the employee repeat-risk model entry.
 - Back-fills the procedural facts that the rules engine evaluates on synthetic cases
   seeded before the engine existed, and records which conditions matched on their findings.
 
@@ -15,11 +16,14 @@ import random
 from sqlalchemy import func, select, update
 from sqlalchemy.orm import Session
 
-from app.db import SessionLocal, new_id
-from app.models import Finding, MistakeRule, Role, ServiceCase, User, UserRole
+from app.config import get_settings
+from app.db import SessionLocal, new_id, utcnow
+from app.models import Finding, MistakeRule, ModelRegistry, Role, ServiceCase, User, UserRole
 from app.pipeline.catalogue import generate_attributes
 from app.services import rules_engine
 from app.services.rbac import ROLE_CATALOGUE
+from app.services.security import hash_password
+from app.services.workforce import MODEL_NAME
 
 BATCH = 2000
 
@@ -39,6 +43,39 @@ def ensure_roles(db: Session) -> list[str]:
             role_id = db.scalar(select(Role.id).where(Role.code == "policy_owner"))
             db.add(UserRole(id=new_id("URL"), user_id=owner.id, role_id=role_id, scope_type="global"))
             added.append("grant:ops.policy")
+    if db.scalar(select(User.id).where(User.username == "hr.chief")) is None:
+        chief = User(
+            id=new_id("USR"),
+            username="hr.chief",
+            display_name="Demo Chief HR Officer",
+            display_name_ar="رئيس الموارد البشرية (تجريبي)",
+            password_hash=hash_password(get_settings().hr_chief_password),
+            locale="en",
+        )
+        db.add(chief)
+        db.flush()
+        role_id = db.scalar(select(Role.id).where(Role.code == "hr_chief"))
+        db.add(UserRole(id=new_id("URL"), user_id=chief.id, role_id=role_id, scope_type="global"))
+        added.append("user:hr.chief")
+    if db.scalar(select(ModelRegistry.id).where(ModelRegistry.name == MODEL_NAME)) is None:
+        db.add(
+            ModelRegistry(
+                id=new_id("MDL"),
+                name=MODEL_NAME,
+                version="1.0",
+                purpose="Indicative probability that a service type repeats for an employee in the next 90 days, "
+                "fitted on bank history (peer rates, shrinkage, follow-up learning effects).",
+                status="MONITORING",
+                owner="Data & AI (demo)",
+                limitations="Development planning only; never an input to disciplinary or pay decisions. Approval is "
+                "simulated for the demo and fitted on synthetic data, so it demonstrates the method, not accuracy.",
+                approved_at=utcnow(),
+                last_run_at=utcnow(),
+                latency_ms_p50=60,
+            )
+        )
+        added.append("model:repeat-risk")
+    db.flush()
     return added
 
 

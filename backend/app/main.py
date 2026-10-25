@@ -5,7 +5,7 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
 
-from app.api import admin, auth, cases, config, dashboard, insights, learning, ops, reports, rules
+from app.api import admin, auth, cases, config, dashboard, hr, insights, learning, ops, reports, rules
 from app.config import get_settings
 from app.db import SessionLocal, utcnow
 
@@ -48,7 +48,7 @@ async def request_context(request: Request, call_next):
     return response
 
 
-for module in (auth, dashboard, cases, learning, insights, ops, reports, admin, config, rules):
+for module in (auth, dashboard, cases, learning, insights, hr, ops, reports, admin, config, rules):
     app.include_router(module.router)
 app.include_router(config.public_router)
 

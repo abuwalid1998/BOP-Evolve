@@ -66,7 +66,7 @@ export default function OverviewPage() {
     <>
       {header}
       <div className="stack">
-        <div className="grid grid-4">
+        <div className="grid grid-4" data-tour="overview-kpis">
           <Kpi label={t('overview.reviewed')} value={fmtNumber(data.totals.reviewed_interactions)} foot={t('overview.window', { n: days })} />
           <Kpi
             label={t('overview.potential')}
@@ -91,7 +91,7 @@ export default function OverviewPage() {
         </div>
 
         <div className="grid grid-3">
-          <Card title={t('overview.trend')} className="span-2">
+          <Card title={t('overview.trend')} className="span-2" tour="overview-trend">
             <div style={{ height: 240 }} dir="ltr">
               <ResponsiveContainer>
                 <LineChart data={trend} margin={{ top: 8, right: 12, bottom: 0, left: -12 }}>

@@ -1488,7 +1488,7 @@ export default function RulesPage() {
               ))}
             </ul>
           </Card>
-          <div>
+          <div data-tour="rules-detail">
             {current ? (
               <RuleDetail
                 key={current.id}

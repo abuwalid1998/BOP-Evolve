@@ -15,7 +15,9 @@ export type BriefPage =
   | 'how'
   | 'health'
   | 'config'
-  | 'admin';
+  | 'admin'
+  | 'workforce'
+  | 'report';
 
 const STORAGE_PREFIX = 'bop-evolve.brief.';
 

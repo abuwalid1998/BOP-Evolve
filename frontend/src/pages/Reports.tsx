@@ -52,7 +52,7 @@ export default function ReportsPage() {
           </button>
         ))}
       </div>
-      <Card>
+      <Card tour="reports-list">
         {(catalogue.loading || report.loading) && !report.data && <Loading />}
         <ErrorBox error={catalogue.error || report.error} onRetry={report.reload} />
         {report.data && report.data.rows.length === 0 && <Empty />}

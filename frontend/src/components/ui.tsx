@@ -77,15 +77,18 @@ export function Card({
   actions,
   children,
   className = '',
+  tour,
 }: {
   title?: ReactNode;
   subtitle?: ReactNode;
   actions?: ReactNode;
   children: ReactNode;
   className?: string;
+  /** Anchor for the guided tour (data-tour). */
+  tour?: string;
 }) {
   return (
-    <section className={`card ${className}`}>
+    <section className={`card ${className}`} data-tour={tour}>
       {(title || actions) && (
         <div className="card-head">
           <div>

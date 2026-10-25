@@ -58,7 +58,7 @@ export default function ExplorerPage() {
       <PageHead title={t('explorer.title')} subtitle={t('explorer.subtitle')} actions={<LiveStatus updatedAt={updatedAt} stale={stale} />} />
       <PageBrief page="explorer" />
       <div className="stack">
-        <Card>
+        <Card tour="explorer-filters">
           <form
             className="filters"
             onSubmit={(e) => {
@@ -136,7 +136,7 @@ export default function ExplorerPage() {
           </form>
         </Card>
 
-        <Card>
+        <Card tour="explorer-table">
           {!data && loading && <Loading />}
           <ErrorBox error={error} onRetry={reload} />
           {data && data.items.length === 0 && <Empty />}

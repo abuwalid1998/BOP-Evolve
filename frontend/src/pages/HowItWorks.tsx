@@ -259,7 +259,7 @@ export default function HowItWorksPage() {
             ))}
           </ul>
           <div className="how-layout">
-            <ProcessMap steps={mapSteps} focus={touring ? selected : null} className="how-map">
+            <ProcessMap steps={mapSteps} focus={touring ? selected : null} className="how-map" tour="how-map">
               <ol className="how-grid" aria-label={t('how.map.title')}>
                 {STEPS.map((step, i) => {
                   const [col, row] = GRID[step.id];

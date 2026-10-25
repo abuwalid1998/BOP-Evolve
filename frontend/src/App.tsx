@@ -15,9 +15,11 @@ import InsightsPage from './pages/Insights';
 import LearningPage from './pages/Learning';
 import LoginPage from './pages/Login';
 import OverviewPage from './pages/Overview';
+import EmployeeReportPage from './pages/EmployeeReport';
 import ReportsPage from './pages/Reports';
 import RulesPage from './pages/Rules';
 import ScenariosPage from './pages/Scenarios';
+import WorkforcePage from './pages/Workforce';
 
 function Guard({ permissions, children }: { permissions: string[]; children: ReactNode }) {
   const { can } = useAuth();
@@ -48,6 +50,11 @@ export default function App() {
           <Route
             path="learning/:employeeId"
             element={<Guard permissions={['learning.view']}><EmployeeProfilePage /></Guard>}
+          />
+          <Route path="workforce" element={<Guard permissions={['workforce.view']}><WorkforcePage /></Guard>} />
+          <Route
+            path="workforce/:employeeId"
+            element={<Guard permissions={['workforce.view']}><EmployeeReportPage /></Guard>}
           />
           <Route path="insights" element={<Guard permissions={['insights.view']}><InsightsPage /></Guard>} />
           <Route path="scenarios" element={<Guard permissions={['simulations.run']}><ScenariosPage /></Guard>} />
