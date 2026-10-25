@@ -30,6 +30,8 @@ An interactive prototype of the BOP Evolve employee-learning and service-quality
 | **Findings Register** | Filter by status, service type, severity, org unit, dates, ID/pseudonym. Case detail with evidence pointers, applicable policy version, expected behaviour vs observed deviation, the control rule's matched conditions with the facts observed, rule/model output, confidence, limitations. |
 | **"Was the employee aware?"** | Three separate views: the employee's own account (before/after feedback), reviewer assessment (policy clear? evidence supports? system issue?), demonstrated learning (comparable follow-up cases). |
 | **Workflow** | Review decisions (confirm / confirm with amendment / uphold objection / dismiss), employee account & objection, corrective actions with owners, due dates and completion evidence. |
+| **Workforce Development** (Chief HR Officer) | Every employee by department, region, branch and section: development stage, confirmed findings and repeats, the latest finding, corrective actions completed and overdue, the learning-from-findings rate, a 90-day repeat-risk outlook and open knowledge gaps. Drill down from bank to section. Each employee has a printable **Employee Development Report** (findings timeline with the review decision and the action taken by the manager or supervisor, occurrence by service type, knowledge gaps, outlook with the suggested development action and the model card). Views and prints are audited. See [docs/workforce.md](docs/workforce.md). |
+| **Guided tour** | A **Guided tour** button in the top bar walks any user through the sections they can open — 24 steps for the Chief HR Officer, from the executive overview through a real case file to the employee report — with a gliding spotlight, fading cards, Previous / Next / Finish and arrow-key navigation (mirrored in Arabic). It starts by itself on the Chief HR Officer's first sign-in. |
 | **Staff Development** | Versioned, evidence-gated development stages (G0 Baseline → G5 Sustained performance); live evaluation with indicator breakdown, coverage, gaps and warnings; immutable version history; approval of proposed versions; coaching sessions; dated timeline. |
 | **Branch & Unit Performance** | Department / region / branch / section aggregates with privacy suppression and systemic-cause share. |
 | **Intervention Planning** | Aggregate, illustrative recurrence estimates per intervention with 90 % intervals, sample sizes and limitations. Employee-level estimates disabled behind an approval gate. |
@@ -45,7 +47,7 @@ Every page opens with a short brief (purpose, what you will see, what it tells y
 
 The sign-in screen has an ambient data-flow animation (raw fragments are validated, merged and condensed into answers); it honours the OS "reduce motion" setting.
 
-Architecture: [docs/architecture.md](docs/architecture.md) · How it works: [docs/how-it-works.md](docs/how-it-works.md) · Rules engine: [docs/rules-engine.md](docs/rules-engine.md) · Glossary: [docs/glossary.md](docs/glossary.md) · Schema: [docs/data-dictionary.md](docs/data-dictionary.md)
+Architecture: [docs/architecture.md](docs/architecture.md) · How it works: [docs/how-it-works.md](docs/how-it-works.md) · Rules engine: [docs/rules-engine.md](docs/rules-engine.md) · Glossary: [docs/glossary.md](docs/glossary.md) · Workforce & outlook model: [docs/workforce.md](docs/workforce.md) · Schema: [docs/data-dictionary.md](docs/data-dictionary.md)
 
 ## One-click start on Windows
 
@@ -160,7 +162,7 @@ Server settings for this screen:
 
 ## Demo accounts
 
-All demo accounts share the local-only password **`Evolve#Demo2026`** (configurable with `DEMO_PASSWORD`). The sign-in screen lists them; click one to fill the username.
+All demo accounts share the local-only password **`Evolve#Demo2026`** (configurable with `DEMO_PASSWORD`), except the Chief HR Officer account `hr.chief`, which uses **`123`** (configurable with `HR_CHIEF_PASSWORD`). These are demonstration passwords only; mock sign-in is refused when `APP_ENV=production`. The sign-in screen lists them; click one to fill the username.
 
 | Username | Role | Scope | Sees |
 |---|---|---|---|
@@ -175,6 +177,7 @@ All demo accounts share the local-only password **`Evolve#Demo2026`** (configura
 | `risk.compliance` | Risk / Compliance / Audit | Global | Cases, reviews, restricted evidence, reports, model health, audit log. |
 | `data.ops` | Data / AI / IT Ops | Global | Pipeline & model health and ops reports only — no case content. |
 | `analyst` | Analyst (read-only) | Global | Aggregated insights and reports only. |
+| `hr.chief` | Chief HR Officer | Global | Workforce development for every employee, printable employee reports, case files, staff development, insights, reports, scenarios. **Own demo password: `123`** (`HR_CHIEF_PASSWORD`). |
 | `ops.policy` | Policy Owner | Global | Drafts and approves policy versions and control rules (never their own); aggregates and reports. |
 
 A good walkthrough: sign in as `employee.demo` and respond to a pending finding → sign in as `branch.n01`, review it and agree an action → back as the employee, complete the action with an evidence reference → as `branch.n01` or `hr.ld`, open the profile and re-evaluate / approve the proposed version. Watch each step appear in the audit log as `superadmin`.
@@ -287,7 +290,7 @@ BOP-Evolve/
 
 - [x] Mock data is clearly labelled on every screen (persistent banner, API header, CSV exports).
 - [x] Login and logout work; logout revokes the server session; demo credentials are not real.
-- [x] System Administrator and least-privilege role views are represented (12 roles with scopes).
+- [x] System Administrator and least-privilege role views are represented (13 roles with scopes).
 - [x] Arabic/English switching works, including full RTL layout.
 - [x] Each finding shows rationale, policy reference and version, and the rule conditions it met.
 - [x] Control rules and policy versions follow a four-eyes approval workflow and can be backtested before approval.

@@ -62,7 +62,7 @@ export default function ScenariosPage() {
           </div>
         </div>
         <div className="grid grid-3">
-          <Card>
+          <Card tour="scenarios-form">
             <form className="stack" style={{ gap: 12 }} onSubmit={run}>
               <Field label={t('scenarios.caseType')}>
                 <select value={caseType} onChange={(e) => setCaseType(e.target.value)}>

@@ -151,7 +151,9 @@ export default function EmployeeProfilePage() {
             )
           }
         >
-          <GenerationTrack current={current?.generation_code ?? null} />
+          <div data-tour="profile-track">
+            <GenerationTrack current={current?.generation_code ?? null} />
+          </div>
           {pending && (
             <div className="callout" style={{ marginTop: 14 }}>
               <div style={{ flex: 1 }}>

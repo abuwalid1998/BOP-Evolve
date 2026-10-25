@@ -10,6 +10,7 @@ x-backend-env: &backend-env
   DATABASE_URL: postgresql://${POSTGRES_USER:-bop_evolve}:${POSTGRES_PASSWORD:-bop_evolve_local}@db:5432/${POSTGRES_DB:-bop_evolve_dev}
   JWT_SECRET: ${JWT_SECRET:-local-dev-only-change-me}
   DEMO_PASSWORD: ${DEMO_PASSWORD:-Evolve#Demo2026}
+  HR_CHIEF_PASSWORD: ${HR_CHIEF_PASSWORD:-123}
   SESSION_TTL_MINUTES: ${SESSION_TTL_MINUTES:-480}
   LOG_LEVEL: ${LOG_LEVEL:-INFO}
   CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:5173,http://localhost:8080}

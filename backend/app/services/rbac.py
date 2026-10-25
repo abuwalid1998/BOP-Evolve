@@ -57,6 +57,10 @@ ROLE_CATALOGUE: dict[str, dict] = {
         "name": "Read-only Analyst",
         "description": "Aggregated, de-identified reporting according to approval.",
     },
+    "hr_chief": {
+        "name": "Chief Human Resources Officer",
+        "description": "Bank-wide workforce development: every employee's findings, actions, learning and outlook; printable employee reports.",
+    },
     "policy_owner": {
         "name": "Policy Owner",
         "description": "Author and approve policy versions and control rules; backtest their impact before go-live.",
@@ -85,6 +89,7 @@ PERMISSIONS: dict[str, str] = {
     "audit.view": "View the audit trail",
     "config.view": "View system configuration and run database connection / schema checks",
     "config.manage": "Change system configuration, database connections and apply schema changes",
+    "workforce.view": "View individual employee development, findings, actions and outlook within scope; print employee reports",
     "rules.view": "View the policy and control-rule register",
     "rules.author": "Draft policy versions and control rules and submit them for approval",
     "rules.approve": "Approve, reject or retire policy versions and control rules (never one's own)",
@@ -126,6 +131,16 @@ ROLE_PERMISSIONS: dict[str, set[str]] = {
     "data_ai_ops": {"dashboard.view", "reports.ops", "ops.view", "ops.manage", "config.view"},
     "analyst": {"dashboard.view", "insights.view", "reports.view"},
     "policy_owner": {"dashboard.view", "insights.view", "reports.view", "rules.author", "rules.approve"},
+    "hr_chief": {
+        "dashboard.view",
+        "cases.view",
+        "learning.view",
+        "learning.approve",
+        "insights.view",
+        "reports.view",
+        "simulations.run",
+        "workforce.view",
+    },
 }
 ROLE_PERMISSIONS["risk_compliance"] |= {"rules.author", "rules.approve"}
 # Everyone may read the rules they are assessed against.

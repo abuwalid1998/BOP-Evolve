@@ -26,6 +26,8 @@ class Settings(BaseSettings):
     # Demo accounts created by the seed script share this password. It is a
     # documented, local-only demo value and must never be a real credential.
     demo_password: str = "Evolve#Demo2026"
+    # The Chief HR Officer demo account has its own password (demo only; mock sign-in is refused in production).
+    hr_chief_password: str = "123"
     seed_on_start: bool = True
 
     worker_tick_seconds: int = 10

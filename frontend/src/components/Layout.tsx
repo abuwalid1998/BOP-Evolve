@@ -1,9 +1,11 @@
+import { useEffect } from 'react';
 import { NavLink, Outlet } from 'react-router-dom';
 import { isDesktop } from '../api/client';
 import logo from '../assets/logo.png';
 import { useAuth } from '../auth/AuthContext';
 import { useI18n, type MessageKey } from '../i18n';
 import { Icon, type IconName } from './Icon';
+import { TourProvider, tourSeen, useTour } from './Tour';
 
 interface NavItem {
   to: string;
@@ -15,6 +17,7 @@ interface NavItem {
 export const NAV: NavItem[] = [
   { to: '/overview', label: 'nav.overview', icon: 'overview', permissions: ['dashboard.view'] },
   { to: '/explorer', label: 'nav.explorer', icon: 'explorer', permissions: ['cases.view'] },
+  { to: '/workforce', label: 'nav.workforce', icon: 'people', permissions: ['workforce.view'] },
   { to: '/learning', label: 'nav.learning', icon: 'learning', permissions: ['learning.view'] },
   { to: '/insights', label: 'nav.insights', icon: 'insights', permissions: ['insights.view'] },
   { to: '/scenarios', label: 'nav.scenarios', icon: 'scenarios', permissions: ['simulations.run'] },
@@ -51,7 +54,35 @@ export function LanguageToggle() {
   );
 }
 
+function TourButton() {
+  const { t } = useI18n();
+  const { user } = useAuth();
+  const { start, active } = useTour();
+  // The Chief HR Officer is offered the tour automatically on first sign-in.
+  useEffect(() => {
+    if (user && user.roles.some((r) => r.code === 'hr_chief') && !tourSeen(user.username)) {
+      const h = window.setTimeout(start, 900);
+      return () => window.clearTimeout(h);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.username]);
+  return (
+    <button className="btn small tour-start" onClick={start} disabled={active} data-tour="tour-button">
+      <Icon name="compass" size={16} />
+      {t('tour.start')}
+    </button>
+  );
+}
+
 export default function Layout() {
+  return (
+    <TourProvider>
+      <Shell />
+    </TourProvider>
+  );
+}
+
+function Shell() {
   const { user, logout, can } = useAuth();
   const { t, tx, pick } = useI18n();
   const isEmployee = !!user?.employee_id && user.roles.every((r) => r.code === 'employee');
@@ -84,6 +115,7 @@ export default function Layout() {
         <DemoBanner />
         <header className="topbar">
           <div className="spacer" />
+          <TourButton />
           <LanguageToggle />
           {user && (
             <div className="user-chip">

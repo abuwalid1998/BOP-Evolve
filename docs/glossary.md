@@ -25,6 +25,7 @@ The approved vocabulary used across BOP Evolve, in English and Arabic. The same 
 |---|---|
 | Executive Overview | الملخص التنفيذي |
 | Findings Register | سجل الملاحظات |
+| Workforce Development | تطوير الكوادر البشرية |
 | Staff Development | التطوير المهني للموظفين |
 | My Development | تطويري المهني |
 | Branch & Unit Performance | أداء الفروع والوحدات |
@@ -137,3 +138,4 @@ The approved vocabulary used across BOP Evolve, in English and Arabic. The same 
 | Data, AI & IT Operations | عمليات البيانات والذكاء الاصطناعي وتقنية المعلومات |
 | Analyst (read-only) | محلل (اطلاع فقط) |
 | Policy Owner | مالك السياسة |
+| Chief Human Resources Officer | رئيس الموارد البشرية |

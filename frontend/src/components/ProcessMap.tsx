@@ -31,6 +31,8 @@ export interface ProcessMapProps {
   /** Tokens spawned per second. */
   rate?: number;
   className?: string;
+  /** Anchor for the guided tour (data-tour). */
+  tour?: string;
 }
 
 interface Token {
@@ -61,7 +63,7 @@ function cssColour(el: Element, name: string, fallback: string) {
   return getComputedStyle(el).getPropertyValue(name).trim() || fallback;
 }
 
-export function ProcessMap({ steps, children, focus = null, rate = 1.6, className = '' }: ProcessMapProps) {
+export function ProcessMap({ steps, children, focus = null, rate = 1.6, className = '', tour }: ProcessMapProps) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const stepsRef = useRef(steps);
@@ -304,7 +306,7 @@ export function ProcessMap({ steps, children, focus = null, rate = 1.6, classNam
   }, [rate]);
 
   return (
-    <div ref={wrapRef} className={`process-map ${className}`}>
+    <div ref={wrapRef} className={`process-map ${className}`} data-tour={tour}>
       <canvas ref={canvasRef} className="process-map-canvas" aria-hidden="true" />
       {children}
     </div>

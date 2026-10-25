@@ -27,6 +27,7 @@ export default function LearningPage() {
           </div>
         </div>
         <Card
+          tour="learning-table"
           title={data ? t('learning.employees', { n: data.length }) : undefined}
           actions={
             <form

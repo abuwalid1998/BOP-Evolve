@@ -349,6 +349,19 @@ class Seeder:
                 None,
             ),
             (
+                "Employee repeat-risk estimator",
+                "1.0",
+                "MONITORING",
+                "Indicative probability that a service type repeats for an employee in the next 90 days, "
+                "fitted on bank history (peer rates, shrinkage, follow-up learning effects).",
+                "Development planning only; never an input to disciplinary or pay decisions. Approval is simulated "
+                "for the demo and fitted on synthetic data, so it demonstrates the method, not accuracy.",
+                60,
+                0.02,
+                0.04,
+                0.09,
+            ),
+            (
                 "Transcript summariser",
                 "0.2",
                 "SUSPENDED",
@@ -425,6 +438,10 @@ class Seeder:
             "مدير قسم الصرافين (تجريبي)",
             [("section_manager", "section", "BR-N01-TEL")],
         )
+        chief = self.user(
+            "hr.chief", "Demo Chief HR Officer", "رئيس الموارد البشرية (تجريبي)", [("hr_chief", "global", None)]
+        )
+        chief.password_hash = hash_password(self.settings.hr_chief_password)
         self.user("hr.ld", "Demo L&D Partner", "شريك التعلم والتطوير (تجريبي)", [("hr_ld", "global", None)])
         self.user(
             "risk.compliance",
@@ -640,7 +657,7 @@ class Seeder:
         if age_days < 5:
             return False  # still awaiting review
 
-        decided = self.at(created, 2, 6)
+        decided = min(self.at(created, 2, 6), self.now - timedelta(hours=1))
         roll = rng.random()
         if awareness == "disagree" and roll < 0.45:
             decision = "dispute_upheld"
