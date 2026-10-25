@@ -19,6 +19,9 @@ CONTRIBUTING_FACTORS = (
 REVIEW_DECISIONS = ("confirm", "amend", "dispute_upheld", "dismiss")
 ACTION_TYPES = ("coaching", "training", "job_aid", "practice", "policy_clarification", "system_fix")
 ACTION_STATUSES = ("planned", "in_progress", "completed", "cancelled")
+RULE_STATUSES = ("draft", "pending_approval", "active", "retired")
+RULE_KINDS = ("breach", "early_warning")
+POLICY_STATUSES = ("draft", "pending_approval", "active", "superseded", "retired")
 
 
 def _in(values: tuple[str, ...]) -> str:
@@ -51,11 +54,29 @@ class PolicyVersion(Base):
     effective_to: Mapped[datetime | None] = mapped_column(UTCDateTime)
     owner_unit_id: Mapped[str | None] = mapped_column(ForeignKey("org_units.id"))
     approved_at: Mapped[datetime | None] = mapped_column(UTCDateTime)
+    status: Mapped[str] = mapped_column(String(20), default="active", server_default="active")
+    created_by: Mapped[str | None] = mapped_column(ForeignKey("users.id"))
+    created_at: Mapped[datetime | None] = mapped_column(UTCDateTime, default=utcnow)
+    submitted_by: Mapped[str | None] = mapped_column(ForeignKey("users.id"))
+    submitted_at: Mapped[datetime | None] = mapped_column(UTCDateTime)
+    approved_by: Mapped[str | None] = mapped_column(ForeignKey("users.id"))
+    review_note: Mapped[str | None] = mapped_column(Text)
 
-    __table_args__ = (UniqueConstraint("policy_code", "version", name="uq_policy_versions_code_version"),)
+    __table_args__ = (
+        UniqueConstraint("policy_code", "version", name="uq_policy_versions_code_version"),
+        CheckConstraint(f"status IN ({_in(POLICY_STATUSES)})", name="status"),
+    )
 
 
 class MistakeRule(Base):
+    """A versioned control rule: conditions over a case's procedural facts.
+
+    ``breach`` rules raise potential findings for human review; ``early_warning`` rules
+    only flag circumstances that historically precede breaches, for monitoring and
+    forecasting. A version moves draft -> pending_approval -> active -> retired, and the
+    approver must differ from the author and the submitter (four-eyes).
+    """
+
     __tablename__ = "mistake_rules"
 
     id: Mapped[str] = mapped_column(String(32), primary_key=True, default=lambda: new_id("RUL"))
@@ -63,19 +84,41 @@ class MistakeRule(Base):
     version: Mapped[str] = mapped_column(String(16))
     category: Mapped[str] = mapped_column(String(40), index=True)
     policy_version_id: Mapped[str] = mapped_column(ForeignKey("policy_versions.id"))
+    name: Mapped[str] = mapped_column(String(160), default="", server_default="")
+    name_ar: Mapped[str] = mapped_column(String(160), default="", server_default="")
+    kind: Mapped[str] = mapped_column(String(16), default="breach", server_default="breach")
     description: Mapped[str] = mapped_column(Text)
     description_ar: Mapped[str] = mapped_column(Text)
     expected_action: Mapped[str] = mapped_column(Text)
     expected_action_ar: Mapped[str] = mapped_column(Text)
+    observed_action: Mapped[str | None] = mapped_column(Text)
+    observed_action_ar: Mapped[str | None] = mapped_column(Text)
+    conditions: Mapped[dict | None] = mapped_column(JSON(none_as_null=True))
     severity: Mapped[str] = mapped_column(String(16))
-    active: Mapped[bool] = mapped_column(Boolean, default=True)
+    base_confidence: Mapped[float] = mapped_column(Float, default=0.8, server_default="0.8")
+    status: Mapped[str] = mapped_column(String(20), default="draft", server_default="draft", index=True)
+    created_by: Mapped[str | None] = mapped_column(ForeignKey("users.id"))
+    created_at: Mapped[datetime | None] = mapped_column(UTCDateTime, default=utcnow)
+    submitted_by: Mapped[str | None] = mapped_column(ForeignKey("users.id"))
+    submitted_at: Mapped[datetime | None] = mapped_column(UTCDateTime)
+    approved_by: Mapped[str | None] = mapped_column(ForeignKey("users.id"))
+    approved_at: Mapped[datetime | None] = mapped_column(UTCDateTime)
+    retired_at: Mapped[datetime | None] = mapped_column(UTCDateTime)
+    review_note: Mapped[str | None] = mapped_column(Text)
 
     policy_version: Mapped[PolicyVersion] = relationship()
 
     __table_args__ = (
         UniqueConstraint("rule_code", "version", name="uq_mistake_rules_code_version"),
         CheckConstraint(f"severity IN ({_in(SEVERITIES)})", name="severity"),
+        CheckConstraint(f"status IN ({_in(RULE_STATUSES)})", name="status"),
+        CheckConstraint(f"kind IN ({_in(RULE_KINDS)})", name="kind"),
+        CheckConstraint("base_confidence >= 0 AND base_confidence <= 1", name="base_confidence"),
     )
+
+    @property
+    def active(self) -> bool:
+        return self.status == "active"
 
 
 class ServiceCase(Base):
@@ -96,6 +139,8 @@ class ServiceCase(Base):
     data_quality_status: Mapped[str] = mapped_column(String(16), default="valid")
     ingestion_run_id: Mapped[str | None] = mapped_column(ForeignKey("ingestion_runs.id"))
     is_synthetic: Mapped[bool] = mapped_column(Boolean, default=True)
+    # Procedural facts the rules engine evaluates (see pipeline.catalogue.FIELDS). No customer data.
+    attributes: Mapped[dict | None] = mapped_column(JSON(none_as_null=True))
     created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
 
     findings: Mapped[list["Finding"]] = relationship(back_populates="case")
@@ -140,6 +185,8 @@ class Finding(Base):
     model_id: Mapped[str | None] = mapped_column(ForeignKey("model_registry.id"))
     confidence: Mapped[float | None] = mapped_column(Float)
     contributing_factor: Mapped[str] = mapped_column(String(24), default="undetermined")
+    # The rule conditions that matched, with the facts observed, so reviewers see why it was flagged.
+    matched_conditions: Mapped[list | None] = mapped_column(JSON(none_as_null=True))
     created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow, index=True)
     reviewed_by: Mapped[str | None] = mapped_column(ForeignKey("users.id"))
     reviewed_at: Mapped[datetime | None] = mapped_column(UTCDateTime)

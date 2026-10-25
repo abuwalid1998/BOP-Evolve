@@ -28,7 +28,7 @@ from app.models import (
     User,
 )
 from app.models.cases import ACTION_TYPES, AWARENESS_STATES, CONTRIBUTING_FACTORS, SEVERITIES
-from app.services import audit, learning, settings_store
+from app.services import audit, learning, rules_engine, settings_store
 from app.services.rbac import descendants
 from app.services.scoping import case_condition, case_in_scope, org_path, unit_ref
 
@@ -158,6 +158,7 @@ def _finding_detail(db: Session, principal: Principal, finding: Finding, can_res
         "detection_method": finding.detection_method,
         "confidence": finding.confidence,
         "contributing_factor": finding.contributing_factor,
+        "matched_conditions": rules_engine.describe(finding.matched_conditions),
         "created_at": _iso(finding.created_at),
         "reviewed_at": _iso(finding.reviewed_at),
         "reviewed_by": _user_label(db, finding.reviewed_by),
@@ -166,6 +167,9 @@ def _finding_detail(db: Session, principal: Principal, finding: Finding, can_res
             "code": rule.rule_code,
             "version": rule.version,
             "category": rule.category,
+            "name": rule.name,
+            "name_ar": rule.name_ar,
+            "match": (rule.conditions or {}).get("match", "all"),
             "description": rule.description,
             "description_ar": rule.description_ar,
             "expected_action": rule.expected_action,

@@ -26,6 +26,7 @@ case "$1" in
     if [ "${SEED_ON_START:-true}" = "true" ]; then
       python -m app.seed.seed_mock_data --if-empty
     fi
+    python -m app.seed.upgrade
     if [ "${UVICORN_RELOAD:-false}" = "true" ]; then
       exec uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
     fi
@@ -37,7 +38,8 @@ case "$1" in
     ;;
   migrate)
     wait_for_db
-    exec alembic upgrade head
+    alembic upgrade head
+    exec python -m app.seed.upgrade
     ;;
   seed)
     wait_for_db
