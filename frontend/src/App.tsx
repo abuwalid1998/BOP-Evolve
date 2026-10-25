@@ -6,6 +6,7 @@ import { ErrorBox, Loading } from './components/ui';
 import { ApiError } from './api/client';
 import AdminPage from './pages/Admin';
 import CaseDetailPage from './pages/CaseDetail';
+import DataFlowPage from './pages/DataFlow';
 import EmployeeProfilePage from './pages/EmployeeProfile';
 import ExplorerPage from './pages/Explorer';
 import HealthPage from './pages/Health';
@@ -52,6 +53,7 @@ export default function App() {
             path="reports"
             element={<Guard permissions={['reports.view', 'reports.ops']}><ReportsPage /></Guard>}
           />
+          <Route path="data-flow" element={<Guard permissions={['dashboard.view']}><DataFlowPage /></Guard>} />
           <Route path="health" element={<Guard permissions={['ops.view']}><HealthPage /></Guard>} />
           <Route path="admin" element={<Guard permissions={['admin.view', 'audit.view']}><AdminPage /></Guard>} />
           <Route path="*" element={<Home />} />

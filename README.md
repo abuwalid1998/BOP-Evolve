@@ -32,11 +32,14 @@ An interactive prototype of the BOP Evolve employee-learning and service-quality
 | **Team & Branch Insights** | Department / region / branch / section aggregates with privacy suppression and systemic-cause share. |
 | **Future Scenarios** | Aggregate, illustrative recurrence estimates per intervention with 90 % intervals, sample sizes and limitations. Employee-level estimates disabled behind an approval gate. |
 | **Reports** | Quality trends, common issues, repeat-after-coaching, training effectiveness, awaiting response, overdue actions, data quality, model performance — with CSV export. |
+| **How Data Flows** | Animated chart of raw data → trusted data → information → knowledge → answers, with live counts for your access scope, one example record traced through every stage, and the questions each answer serves. Static version with a diagram: [docs/data-flow.md](docs/data-flow.md). |
 | **Pipeline & Model Health** | Seven simulated pipelines covering every state (`HEALTHY`, `RUNNING`, `DEGRADED`, `FAILED`, `PAUSED`, `STALE`), run history, quarantine, pause/resume; model registry across every lifecycle state with drift / override / latency. |
 | **Administration** | Users and scoped role grants, role-permission matrix, policies & versioned rules, integrations (approved/enabled), audit log, configuration. |
 | **Security** | Server-side RBAC with organisational scopes, server-side sessions (logout revokes), audit events with redaction, request IDs, production guard against mock auth, hardened Electron shell. |
 
-Architecture details: [docs/architecture.md](docs/architecture.md) · Schema: [docs/data-dictionary.md](docs/data-dictionary.md)
+The sign-in screen has an ambient data-flow animation (raw fragments are validated, merged and condensed into answers); it honours the OS "reduce motion" setting.
+
+Architecture: [docs/architecture.md](docs/architecture.md) · Data flow chart: [docs/data-flow.md](docs/data-flow.md) · Schema: [docs/data-dictionary.md](docs/data-dictionary.md)
 
 ## Quick start (Docker)
 
@@ -215,7 +218,7 @@ BOP-Evolve/
 ├── desktop/                     # Electron shell + electron-builder config
 │   ├── src/{main,preload,settings}.js
 │   └── electron-builder.yml
-├── docs/                        # architecture, data dictionary, governance
+├── docs/                        # architecture, data flow chart, data dictionary, governance
 └── .github/workflows/           # CI and desktop installer builds
 ```
 
