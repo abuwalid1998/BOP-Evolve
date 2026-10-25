@@ -76,6 +76,22 @@ export interface ActionItem {
   completion_evidence_ref: string | null;
 }
 
+/** A rule condition that held for a case, with the fact observed (labels supplied by the API). */
+export interface MatchedCondition {
+  field: string;
+  op: string;
+  value: unknown;
+  actual: unknown;
+  label: string;
+  label_ar: string;
+  op_label: string;
+  op_label_ar: string;
+  value_label: string | null;
+  value_label_ar: string | null;
+  actual_label: string | null;
+  actual_label_ar: string | null;
+}
+
 export interface FindingDetail {
   id: string;
   status: string;
@@ -91,11 +107,15 @@ export interface FindingDetail {
   created_at: string;
   reviewed_at: string | null;
   reviewed_by: UserLabel | null;
+  matched_conditions: MatchedCondition[];
   rule: {
     id: string;
     code: string;
     version: string;
     category: string;
+    name: string;
+    name_ar: string;
+    match: 'all' | 'any';
     description: string;
     description_ar: string;
     expected_action: string;

@@ -91,6 +91,7 @@ def test_seeded_findings_match_their_rule(db):
         select(Finding, ServiceCase, MistakeRule)
         .join(ServiceCase, ServiceCase.id == Finding.case_id)
         .join(MistakeRule, MistakeRule.id == Finding.rule_id)
+        .where(Finding.matched_conditions.is_not(None))  # seeded; other tests add ad-hoc findings without facts
         .limit(400)
     ).all()
     assert rows

@@ -151,11 +151,11 @@ def explanation(case_type: str, policy_version: str, lang: str) -> str:
     code = spec["policy"][0]
     if lang == "en":
         return (
-            f"Rule {spec['rule']} flagged this case under policy {code} v{policy_version}. "
+            f"Control rule {spec['rule']} flagged this case under policy {code} v{policy_version}. "
             f"{spec['description'][i]} Expected: {spec['expected'][i]}"
         )
     return (
-        f"رصدت القاعدة {spec['rule']} هذه الحالة بموجب السياسة {code} الإصدار {policy_version}. "
+        f"رصدت قاعدة الضبط {spec['rule']} هذه الحالة بموجب السياسة {code} الإصدار {policy_version}. "
         f"{spec['description'][i]} المتوقع: {spec['expected'][i]}"
     )
 
@@ -324,8 +324,8 @@ OPERATORS: dict[str, dict] = {
     "gte": {"types": ("number",), "label": ("is at least", "لا يقل عن")},
     "lt": {"types": ("number",), "label": ("is less than", "أقل من")},
     "lte": {"types": ("number",), "label": ("is at most", "لا يزيد عن")},
-    "is_true": {"types": ("bool",), "label": ("is recorded (yes)", "مسجّل (نعم)")},
-    "is_false": {"types": ("bool",), "label": ("is not recorded (no)", "غير مسجّل (لا)")},
+    "is_true": {"types": ("bool",), "label": ("= Yes", "= نعم")},
+    "is_false": {"types": ("bool",), "label": ("= No", "= لا")},
 }
 
 RULE_NAMES: dict[str, tuple[str, str]] = {

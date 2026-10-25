@@ -400,7 +400,7 @@ class Seeder:
 
     # ---------------------------------------------------------------- people
     def seed_people(self) -> None:
-        self.user("superadmin", "Demo Super Admin", "مدير النظام (تجريبي)", [("super_admin", "global", None)])
+        self.user("superadmin", "Demo System Administrator", "مدير النظام (تجريبي)", [("super_admin", "global", None)])
         self.user(
             "dept.head",
             "Demo Head of Retail",
@@ -439,16 +439,7 @@ class Seeder:
             [("data_ai_ops", "global", None)],
         )
         self.user("analyst", "Demo Read-only Analyst", "محلل للقراءة فقط (تجريبي)", [("analyst", "global", None)])
-        policy_owner = self.user(
-            "ops.policy", "Demo Policy Owner", "مالك السياسة (تجريبي)", [("policy_owner", "global", None)]
-        )
-        compliance = self.users["risk.compliance"]
-        for rule in self.rules.values():
-            rule.created_by = rule.submitted_by = policy_owner.id
-            rule.approved_by = compliance.id
-        for policy in self.policies.values():
-            policy.created_by = policy.submitted_by = policy_owner.id
-            policy.approved_by = compliance.id
+        self.user("ops.policy", "Demo Policy Owner", "مالك السياسة (تجريبي)", [("policy_owner", "global", None)])
 
         counter = 1001
         sections = [u for u in self.units.values() if u.unit_type == "section"]
@@ -486,6 +477,13 @@ class Seeder:
         )
         first.user_id = emp_user.id
         self.flush()
+
+        # Reference rules and policies were authored by the policy owner and approved by Compliance.
+        owner, compliance = self.users["ops.policy"], self.users["risk.compliance"]
+        for item in [*self.rules.values(), *self.policies.values()]:
+            item.created_by = item.submitted_by = owner.id
+            item.approved_by = compliance.id
+        self.db.flush()
 
     # ------------------------------------------------------------- activity
     def seed_history(self) -> None:

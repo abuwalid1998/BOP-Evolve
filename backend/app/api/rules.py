@@ -388,7 +388,6 @@ def _rule_out(principal: Principal, r: MistakeRule, policies: dict, users: dict,
         "severity": r.severity,
         "base_confidence": r.base_confidence,
         "conditions": r.conditions,
-        "conditions_described": rules_engine.describe((r.conditions or {}).get("conditions")),
         "status": r.status,
         "policy": (
             {

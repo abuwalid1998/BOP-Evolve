@@ -3,6 +3,7 @@ import { api, ApiError } from '../api/client';
 import type { ModelStatus, PipelineOverview, PipelineStatus } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
 import { Icon } from '../components/Icon';
+import { PageBrief } from '../components/PageBrief';
 import { Badge, Card, ErrorBox, LiveStatus, Loading, PageHead, StatusBadge } from '../components/ui';
 import { useApi } from '../hooks/useApi';
 import { useI18n } from '../i18n';
@@ -178,6 +179,7 @@ export default function HealthPage() {
         subtitle={t('health.subtitle')}
         actions={<LiveStatus updatedAt={pipelines.updatedAt} stale={pipelines.stale} />}
       />
+      <PageBrief page="health" />
       <div className="stack">
         {pipelines.data && !pipelines.data.overview.worker.alive && (
           <div className="callout bad">

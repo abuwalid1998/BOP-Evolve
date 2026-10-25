@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { qs } from '../api/client';
 import type { EmployeeListItem } from '../api/types';
 import { GenBadge } from '../components/GenerationTrack';
+import { PageBrief } from '../components/PageBrief';
 import { Badge, Bar, Card, Empty, ErrorBox, Field, Loading, PageHead } from '../components/ui';
 import { useApi } from '../hooks/useApi';
 import { useI18n } from '../i18n';
@@ -17,6 +18,7 @@ export default function LearningPage() {
   return (
     <>
       <PageHead title={t('learning.title')} subtitle={t('learning.subtitle')} />
+      <PageBrief page="learning" />
       <div className="stack">
         <div className="callout brand">
           <div>

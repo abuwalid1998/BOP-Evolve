@@ -7,7 +7,7 @@ import { ApiError } from './api/client';
 import AdminPage from './pages/Admin';
 import CaseDetailPage from './pages/CaseDetail';
 import ConfigPage from './pages/Config';
-import DataFlowPage from './pages/DataFlow';
+import HowItWorksPage from './pages/HowItWorks';
 import EmployeeProfilePage from './pages/EmployeeProfile';
 import ExplorerPage from './pages/Explorer';
 import HealthPage from './pages/Health';
@@ -16,6 +16,7 @@ import LearningPage from './pages/Learning';
 import LoginPage from './pages/Login';
 import OverviewPage from './pages/Overview';
 import ReportsPage from './pages/Reports';
+import RulesPage from './pages/Rules';
 import ScenariosPage from './pages/Scenarios';
 
 function Guard({ permissions, children }: { permissions: string[]; children: ReactNode }) {
@@ -54,7 +55,8 @@ export default function App() {
             path="reports"
             element={<Guard permissions={['reports.view', 'reports.ops']}><ReportsPage /></Guard>}
           />
-          <Route path="data-flow" element={<Guard permissions={['dashboard.view']}><DataFlowPage /></Guard>} />
+          <Route path="rules" element={<Guard permissions={['rules.view']}><RulesPage /></Guard>} />
+          <Route path="data-flow" element={<Guard permissions={['dashboard.view', 'rules.view']}><HowItWorksPage /></Guard>} />
           <Route path="health" element={<Guard permissions={['ops.view']}><HealthPage /></Guard>} />
           <Route path="config" element={<Guard permissions={['config.view']}><ConfigPage /></Guard>} />
           <Route path="admin" element={<Guard permissions={['admin.view', 'audit.view']}><AdminPage /></Guard>} />

@@ -14,7 +14,7 @@ from app.models import OrgUnit
 
 ROLE_CATALOGUE: dict[str, dict] = {
     "super_admin": {
-        "name": "Super Admin",
+        "name": "System Administrator",
         "description": "Manage roles, access policies, configuration, integrations, model/pipeline settings and audit views.",
     },
     "dept_head": {
@@ -38,7 +38,7 @@ ROLE_CATALOGUE: dict[str, dict] = {
         "description": "Coaching tasks and authorised case details for their team.",
     },
     "employee": {
-        "name": "Customer-facing Employee",
+        "name": "Customer Service Employee",
         "description": "Own findings, permitted evidence, acknowledgement/dispute, action plan and learning history.",
     },
     "hr_ld": {

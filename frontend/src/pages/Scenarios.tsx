@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import { api, ApiError } from '../api/client';
 import type { SimulationResult, UnitRef } from '../api/types';
+import { PageBrief } from '../components/PageBrief';
 import { Badge, Bar, Card, ErrorBox, Field, Loading, PageHead } from '../components/ui';
 import { useApi } from '../hooks/useApi';
 import { useI18n } from '../i18n';
@@ -52,6 +53,7 @@ export default function ScenariosPage() {
   return (
     <>
       <PageHead title={t('scenarios.title')} subtitle={t('scenarios.subtitle')} />
+      <PageBrief page="scenarios" />
       <div className="stack">
         <div className="callout">
           <div>

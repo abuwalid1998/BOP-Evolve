@@ -112,7 +112,7 @@ def revoke_role(
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Grant not found")
     role = db.get(Role, grant.role_id)
     if user_id == principal.user.id and role.code == "super_admin":
-        raise HTTPException(status.HTTP_409_CONFLICT, "You cannot remove your own Super Admin role")
+        raise HTTPException(status.HTTP_409_CONFLICT, "You cannot remove your own System Administrator role")
     db.delete(grant)
     audit.record(
         db,

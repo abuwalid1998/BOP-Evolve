@@ -2,11 +2,12 @@ import { useState } from 'react';
 import { api, ApiError, qs } from '../api/client';
 import type { UnitRef } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
+import { PageBrief } from '../components/PageBrief';
 import { Badge, Card, ErrorBox, Field, Loading, PageHead, Pager } from '../components/ui';
 import { useApi } from '../hooks/useApi';
 import { useI18n } from '../i18n';
 
-type Tab = 'users' | 'roles' | 'policies' | 'sources' | 'audit';
+type Tab = 'users' | 'roles' | 'sources' | 'audit';
 
 interface AdminUser {
   id: string;
@@ -202,64 +203,6 @@ function RolesTab() {
   );
 }
 
-function PoliciesTab() {
-  const { t, tx, pick, fmtDate } = useI18n();
-  const { data, error } = useApi<
-    {
-      id: string;
-      code: string;
-      version: string;
-      title: string;
-      title_ar: string;
-      effective_from: string;
-      effective_to: string | null;
-      rules: { id: string; code: string; version: string; severity: string; description: string; description_ar: string; active: boolean }[];
-    }[]
-  >('/api/admin/policies');
-  if (!data) return error ? <ErrorBox error={error} /> : <Loading />;
-  return (
-    <Card>
-      <div className="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>{t('case.policy')}</th>
-              <th>{t('learning.effective')}</th>
-              <th>{t('case.rule')}</th>
-            </tr>
-          </thead>
-          <tbody>
-            {data.map((p) => (
-              <tr key={p.id}>
-                <td>
-                  <span className="mono">
-                    {p.code} v{p.version}
-                  </span>
-                  <div>{pick(p.title, p.title_ar)}</div>
-                </td>
-                <td>
-                  {fmtDate(p.effective_from)} → {p.effective_to ? fmtDate(p.effective_to) : '…'}
-                </td>
-                <td>
-                  {p.rules.map((r) => (
-                    <div key={r.id} className="row" style={{ gap: 6 }}>
-                      <span className="mono">
-                        {r.code} v{r.version}
-                      </span>
-                      <Badge tone={r.active ? 'ok' : 'neutral'}>{tx('severity', r.severity)}</Badge>
-                      <span className="subtle">{pick(r.description, r.description_ar)}</span>
-                    </div>
-                  ))}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </Card>
-  );
-}
-
 function SourcesTab() {
   const { t } = useI18n();
   const { can } = useAuth();
@@ -394,7 +337,6 @@ export default function AdminPage() {
   const tabs: { id: Tab; label: string; show: boolean }[] = [
     { id: 'users', label: t('admin.users'), show: can('admin.view') },
     { id: 'roles', label: t('admin.roles'), show: can('admin.view') },
-    { id: 'policies', label: t('admin.policies'), show: can('admin.view', 'audit.view') },
     { id: 'sources', label: t('admin.sources'), show: can('admin.view') },
     { id: 'audit', label: t('admin.audit'), show: can('audit.view') },
   ];
@@ -404,6 +346,7 @@ export default function AdminPage() {
   return (
     <>
       <PageHead title={t('admin.title')} subtitle={t('admin.subtitle')} />
+      <PageBrief page="admin" />
       <div className="tabs" role="tablist">
         {visible.map((item) => (
           <button key={item.id} role="tab" aria-selected={tab === item.id} className={tab === item.id ? 'active' : ''} onClick={() => setTab(item.id)}>
@@ -413,7 +356,6 @@ export default function AdminPage() {
       </div>
       {tab === 'users' && <UsersTab />}
       {tab === 'roles' && <RolesTab />}
-      {tab === 'policies' && <PoliciesTab />}
       {tab === 'sources' && <SourcesTab />}
       {tab === 'audit' && <AuditTab />}
     </>
