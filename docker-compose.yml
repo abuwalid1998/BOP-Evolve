@@ -1,0 +1,79 @@
+# BOP Evolve — local prototype stack (synthetic data only).
+#   docker compose up --build        → http://localhost:8080  (UI)   http://localhost:8000/docs (API)
+# Never connect this stack to production systems.
+name: bop-evolve
+
+x-backend-env: &backend-env
+  APP_ENV: ${APP_ENV:-development}
+  DEMO_MODE: ${DEMO_MODE:-true}
+  AUTH_MODE: ${AUTH_MODE:-mock}
+  DATABASE_URL: postgresql://${POSTGRES_USER:-bop_evolve}:${POSTGRES_PASSWORD:-bop_evolve_local}@db:5432/${POSTGRES_DB:-bop_evolve_dev}
+  JWT_SECRET: ${JWT_SECRET:-local-dev-only-change-me}
+  DEMO_PASSWORD: ${DEMO_PASSWORD:-Evolve#Demo2026}
+  SESSION_TTL_MINUTES: ${SESSION_TTL_MINUTES:-480}
+  LOG_LEVEL: ${LOG_LEVEL:-INFO}
+  CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:5173,http://localhost:8080}
+  WORKER_TICK_SECONDS: ${WORKER_TICK_SECONDS:-10}
+  PRIVACY_MIN_GROUP_EMPLOYEES: ${PRIVACY_MIN_GROUP_EMPLOYEES:-3}
+  PRIVACY_MIN_GROUP_CASES: ${PRIVACY_MIN_GROUP_CASES:-10}
+  # Employee-level estimates require a separate approval and validation gate.
+  EMPLOYEE_LEVEL_SIMULATION_ENABLED: "false"
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-bop_evolve}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-bop_evolve_local}
+      POSTGRES_DB: ${POSTGRES_DB:-bop_evolve_dev}
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  backend:
+    build: ./backend
+    image: bop-evolve/backend:local
+    restart: unless-stopped
+    command: ["api"]
+    environment:
+      <<: *backend-env
+      SEED_ON_START: ${SEED_ON_START:-true}
+    ports:
+      - "${API_PORT:-8000}:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  worker:
+    build: ./backend
+    image: bop-evolve/backend:local
+    restart: unless-stopped
+    command: ["worker"]
+    environment: *backend-env
+    healthcheck:
+      test: ["CMD", "python", "-m", "app.pipeline.healthcheck"]
+      interval: 30s
+      timeout: 10s
+      start_period: 30s
+      retries: 3
+    depends_on:
+      backend:
+        condition: service_healthy
+
+  frontend:
+    build: ./frontend
+    image: bop-evolve/frontend:local
+    restart: unless-stopped
+    ports:
+      - "${WEB_PORT:-8080}:8080"
+    depends_on:
+      backend:
+        condition: service_healthy
+
+volumes:
+  db-data:

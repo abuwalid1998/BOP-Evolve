@@ -1,0 +1,8 @@
+# Keep shell scripts and container files LF on every OS (Windows checkouts included),
+# otherwise Linux containers fail with "/bin/sh^M: bad interpreter".
+* text=auto eol=lf
+*.sh text eol=lf
+*.ps1 text eol=crlf
+*.png binary
+*.ico binary
+*.icns binary

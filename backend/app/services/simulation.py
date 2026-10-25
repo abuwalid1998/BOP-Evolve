@@ -118,9 +118,7 @@ def run(
         "sample": {"cases": n_cases, "confirmed_findings": k},
         "contributing_factors": factor_share,
         "options": options,
-        "recommended_next_step": (
-            {"intervention": best["intervention"], "note": "for_human_review"} if best else None
-        ),
+        "recommended_next_step": ({"intervention": best["intervention"], "note": "for_human_review"} if best else None),
         "warnings": warnings,
         "limitations": LIMITATIONS,
     }

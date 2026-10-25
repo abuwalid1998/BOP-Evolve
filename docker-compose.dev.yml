@@ -1,0 +1,38 @@
+# Development overrides: hot reload for the API and the Vite dev server.
+#   docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
+services:
+  db:
+    ports:
+      - "127.0.0.1:${DB_PORT:-5432}:5432"
+
+  backend:
+    build:
+      context: ./backend
+      args:
+        INSTALL_DEV: "true"
+    environment:
+      UVICORN_RELOAD: "true"
+    volumes:
+      - ./backend:/app
+
+  worker:
+    volumes:
+      - ./backend:/app
+
+  frontend:
+    image: node:22-alpine
+    build: !reset null
+    working_dir: /app
+    command: sh -c "npm ci --no-audit --no-fund && npm run dev -- --host 0.0.0.0 --port 5173"
+    environment:
+      VITE_PROXY_TARGET: http://backend:8000
+    volumes:
+      - ./frontend:/app
+      - frontend-node-modules:/app/node_modules
+    ports: !override
+      - "${VITE_PORT:-5173}:5173"
+    healthcheck:
+      disable: true
+
+volumes:
+  frontend-node-modules:

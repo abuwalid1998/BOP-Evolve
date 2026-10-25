@@ -63,9 +63,7 @@ class IngestionRun(Base):
     request_id: Mapped[str] = mapped_column(String(40))
     error_summary: Mapped[str | None] = mapped_column(Text)
 
-    __table_args__ = (
-        CheckConstraint("status IN ('running','succeeded','partial','failed')", name="status"),
-    )
+    __table_args__ = (CheckConstraint("status IN ('running','succeeded','partial','failed')", name="status"),)
 
 
 class QuarantinedRecord(Base):

@@ -1,0 +1,48 @@
+name: Desktop installers
+
+# Builds the Electron desktop client on each OS (installers cannot be cross-built reliably).
+# Artifacts are unsigned prototype builds; code signing must use the bank's certificates.
+on:
+  workflow_dispatch:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            target: dist:win
+          - os: macos-latest
+            target: dist:mac
+          - os: ubuntu-latest
+            target: dist:linux
+    runs-on: ${{ matrix.os }}
+    env:
+      CSC_IDENTITY_AUTO_DISCOVERY: "false"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci --no-audit --no-fund
+        working-directory: frontend
+      - run: npm ci --no-audit --no-fund
+        working-directory: desktop
+      - run: npm run ${{ matrix.target }}
+        working-directory: desktop
+      - uses: actions/upload-artifact@v4
+        with:
+          name: bop-evolve-desktop-${{ matrix.os }}
+          path: |
+            desktop/release/*.exe
+            desktop/release/*.dmg
+            desktop/release/*.zip
+            desktop/release/*.AppImage
+            desktop/release/*.deb
+          if-no-files-found: error

@@ -1,0 +1,47 @@
+appId: org.bopevolve.desktop
+productName: BOP Evolve
+copyright: Copyright © 2026 BOP Evolve prototype team
+directories:
+  output: release
+  buildResources: build
+files:
+  - src/**
+  - renderer/**
+  - build/icon.png
+  - package.json
+asar: true
+artifactName: BOP-Evolve-${version}-${os}-${arch}.${ext}
+# Installers are attached to CI runs / releases manually; no auto-update feed for the prototype.
+publish: null
+
+win:
+  target:
+    - target: nsis
+      arch: [x64, arm64]
+    - target: portable
+      arch: [x64]
+portable:
+  artifactName: BOP-Evolve-${version}-win-${arch}-portable.${ext}
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+
+mac:
+  category: public.app-category.business
+  target:
+    - target: dmg
+      arch: [x64, arm64]
+    - target: zip
+      arch: [x64, arm64]
+  hardenedRuntime: true
+
+linux:
+  category: Office
+  maintainer: BOP Evolve prototype team
+  target:
+    - target: AppImage
+      arch: [x64, arm64]
+    - target: deb
+      arch: [x64]
