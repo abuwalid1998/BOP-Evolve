@@ -144,6 +144,7 @@ def summary(
                 "confirmed": n_conf,
                 "pending": n_pot,
                 "rate_per_100": round(100 * n_conf / n_cases, 2) if n_cases else None,
+                "pending_per_100": round(100 * n_pot / n_cases, 2) if n_cases else None,
             }
         )
 

@@ -153,7 +153,11 @@ function ResponseForm({ finding, onDone }: { finding: FindingDetail; onDone: () 
   };
 
   return (
-    <form className="callout brand stack" style={{ gap: 12, display: 'flex' }} onSubmit={submit}>
+    <form
+      className="callout brand"
+      style={{ flexDirection: 'column', alignItems: 'stretch', gap: 12 }}
+      onSubmit={submit}
+    >
       <h3>{t('case.respondTitle')}</h3>
       {stage === 'before_feedback' ? (
         <>

@@ -28,7 +28,14 @@ export interface DashboardSummary {
   awareness: Record<string, number>;
   actions: { due_or_completed: number; completed: number; overdue: number; completion_rate: number | null };
   generations: { distribution: Record<string, number>; pending_approval: number };
-  trend: { week_start: string; cases: number; confirmed: number; pending: number; rate_per_100: number | null }[];
+  trend: {
+    week_start: string;
+    cases: number;
+    confirmed: number;
+    pending: number;
+    rate_per_100: number | null;
+    pending_per_100: number | null;
+  }[];
   pipelines: PipelineOverview;
   models: Record<string, number>;
 }

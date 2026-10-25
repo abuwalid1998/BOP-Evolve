@@ -32,6 +32,9 @@ from app.models import (
 METHOD_VERSION = "demo-1.0"
 WEIGHTS = {"understanding": 0.25, "action_completion": 0.25, "follow_up": 0.30, "recurrence_trend": 0.20}
 WINDOW_DAYS = 365
+# A finding counts towards the gates once it has had time to move through the workflow;
+# newer findings are shown as an outstanding gap instead of resetting the profile.
+SETTLE_DAYS = 30
 FOLLOW_UP_DAYS = 90
 TREND_DAYS = 90
 MIN_FOLLOW_UP_CASES = 5
@@ -125,7 +128,10 @@ def evaluate(ev: EmployeeEvidence, as_of: datetime | None = None) -> Evaluation:
 
     status = {f.id: _status_at(f, ev.decisions, as_of) for f in ev.findings}
     counted = [f for f in ev.findings if status[f.id] in _COUNTED]
-    cycle = [f for f in counted if case_by_id[f.case_id].occurred_at >= window_start]
+    settle_cutoff = as_of - timedelta(days=SETTLE_DAYS)
+    in_window = [f for f in counted if case_by_id[f.case_id].occurred_at >= window_start]
+    cycle = [f for f in in_window if f.reviewed_at and f.reviewed_at <= settle_cutoff]
+    in_progress = [f for f in in_window if f not in cycle]
     cycle_ids = {f.id for f in cycle}
     flagged_case_ids = {f.case_id for f in ev.findings if status[f.id] not in (None, "DISMISSED")}
 
@@ -244,6 +250,8 @@ def evaluate(ev: EmployeeEvidence, as_of: datetime | None = None) -> Evaluation:
 
     if not cycle:
         gaps = ["no_open_learning_cycle"]
+    if in_progress:
+        gaps.append("recent_finding_in_progress")
 
     evidence_count = len(cycle) + len(responses) + len(done) + len(training) + len(coaching)
     return Evaluation(

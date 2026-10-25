@@ -284,6 +284,7 @@ def config(principal: Principal = Depends(require("admin.view"))):
             "weights": learning.WEIGHTS,
             "window_days": learning.WINDOW_DAYS,
             "follow_up_days": learning.FOLLOW_UP_DAYS,
+            "settle_days": learning.SETTLE_DAYS,
             "understanding_threshold": learning.UNDERSTANDING_THRESHOLD,
             "follow_up_threshold": learning.FOLLOW_UP_THRESHOLD,
             "note": "Illustrative mock settings only - not approved employment criteria.",

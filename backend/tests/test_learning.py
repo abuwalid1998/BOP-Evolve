@@ -163,3 +163,37 @@ def test_production_refuses_mock_auth():
 def test_audit_metadata_redaction():
     clean = _redact({"password": "x", "nested": {"token": "y"}, "keep": 1})
     assert clean == {"password": "[redacted]", "nested": {"token": "[redacted]"}, "keep": 1}
+
+
+def test_recent_finding_does_not_reset_profile():
+    responses = [
+        EmployeeResponse(
+            finding_id="F1",
+            stage="before_feedback",
+            awareness_state="recognized",
+            submitted_at=NOW - timedelta(days=56),
+        ),
+    ]
+    recent_case = _case(99, 5)
+    recent = Finding(
+        id="F2",
+        case_id="CS-99",
+        rule_id="R",
+        status="CONFIRMED",
+        severity="low",
+        created_at=NOW - timedelta(days=4),
+        reviewed_at=NOW - timedelta(days=2),
+    )
+    base = _evidence(responses=responses)
+    evidence = _evidence(
+        cases=[*base.cases, recent_case],
+        findings=[*base.findings, recent],
+        decisions=[
+            *base.decisions,
+            ReviewDecision(finding_id="F2", decision="confirm", decided_at=NOW - timedelta(days=2)),
+        ],
+        responses=responses,
+    )
+    result = evaluate(evidence)
+    assert result.generation_code == "G1"
+    assert "recent_finding_in_progress" in result.gaps

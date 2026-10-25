@@ -1,6 +1,17 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Bar as RBar, BarChart, CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import {
+  Bar as RBar,
+  BarChart,
+  CartesianGrid,
+  Legend,
+  Line,
+  LineChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from 'recharts';
 import type { DashboardSummary } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
 import { Badge, Bar, Card, ErrorBox, Kpi, LiveStatus, Loading, PageHead, StatusBadge } from '../components/ui';
@@ -85,9 +96,28 @@ export default function OverviewPage() {
                   <YAxis tick={{ fontSize: 11, fill: 'var(--text-3)' }} orientation={dir === 'rtl' ? 'right' : 'left'} />
                   <Tooltip
                     contentStyle={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10 }}
-                    formatter={(value: number) => [fmtNumber(value, 2), t('insights.rate')]}
+                    formatter={(value: number) => fmtNumber(value, 2)}
                   />
-                  <Line type="monotone" dataKey="rate_per_100" stroke="var(--brand)" strokeWidth={2.5} dot={false} connectNulls />
+                  <Legend wrapperStyle={{ fontSize: 12 }} />
+                  <Line
+                    type="monotone"
+                    dataKey="rate_per_100"
+                    name={t('insights.rate')}
+                    stroke="var(--brand)"
+                    strokeWidth={2.5}
+                    dot={false}
+                    connectNulls
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="pending_per_100"
+                    name={t('overview.trendPending')}
+                    stroke="var(--text-3)"
+                    strokeDasharray="4 4"
+                    strokeWidth={1.5}
+                    dot={false}
+                    connectNulls
+                  />
                 </LineChart>
               </ResponsiveContainer>
             </div>
