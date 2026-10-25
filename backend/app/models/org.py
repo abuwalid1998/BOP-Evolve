@@ -51,9 +51,7 @@ class UserRole(Base):
 
     __table_args__ = (
         UniqueConstraint("user_id", "role_id", "scope_type", "scope_id", name="uq_user_roles_assignment"),
-        CheckConstraint(
-            "scope_type IN ('global','department','region','branch','section','self')", name="scope_type"
-        ),
+        CheckConstraint("scope_type IN ('global','department','region','branch','section','self')", name="scope_type"),
     )
 
 

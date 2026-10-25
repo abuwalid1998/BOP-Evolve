@@ -295,12 +295,15 @@ def refresh_generation(
         if current.status == "proposed":
             current.status = "rejected"  # superseded before approval; kept for the record
 
-    version = (db.scalar(
-        select(LearningGeneration.version)
-        .where(LearningGeneration.employee_id == employee_id)
-        .order_by(LearningGeneration.version.desc())
-        .limit(1)
-    ) or 0) + 1
+    version = (
+        db.scalar(
+            select(LearningGeneration.version)
+            .where(LearningGeneration.employee_id == employee_id)
+            .order_by(LearningGeneration.version.desc())
+            .limit(1)
+        )
+        or 0
+    ) + 1
     generation = LearningGeneration(
         employee_id=employee_id,
         version=version,
