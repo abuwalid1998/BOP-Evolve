@@ -30,6 +30,15 @@ class Settings {
     } catch {
       /* first run or unreadable file: keep defaults */
     }
+    // An explicit BOP_EVOLVE_SERVER_URL (set by bop-evolve.bat with the detected API port)
+    // wins for this session without overwriting the saved choice.
+    if (process.env.BOP_EVOLVE_SERVER_URL) {
+      try {
+        this.values.serverUrl = normaliseServerUrl(process.env.BOP_EVOLVE_SERVER_URL);
+      } catch {
+        /* ignore an invalid override and keep the saved value */
+      }
+    }
   }
 
   get serverUrl() {

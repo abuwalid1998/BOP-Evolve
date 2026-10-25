@@ -2,6 +2,7 @@ import { useEffect, useState, type FormEvent } from 'react';
 import { api, ApiError, getApiBase, isDesktop } from '../api/client';
 import logo from '../assets/logo.png';
 import { useAuth } from '../auth/AuthContext';
+import { FlowCanvas } from '../components/FlowCanvas';
 import { DemoBanner, LanguageToggle } from '../components/Layout';
 import { Icon } from '../components/Icon';
 import { Field } from '../components/ui';
@@ -87,6 +88,7 @@ export default function LoginPage() {
       <DemoBanner />
       <div className="login-wrap" style={{ flex: 1 }}>
         <section className="login-hero">
+          <FlowCanvas className="hero-flow" density={1.5} />
           <img className="hero-logo" src={logo} alt="Bank of Palestine · بنك فلسطين" width={148} height={148} />
           <div>
             <h1>{t('app.name')}</h1>
