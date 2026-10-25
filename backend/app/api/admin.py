@@ -8,11 +8,10 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.api.deps import Principal, require
-from app.config import get_settings
 from app.db import get_db
 from app.models import AuditEvent, MistakeRule, OrgUnit, PolicyVersion, Role, SourceSystem, User, UserRole
 from app.models.org import SCOPE_TYPES
-from app.services import audit, learning, simulation
+from app.services import audit
 from app.services.rbac import PERMISSIONS, ROLE_CATALOGUE, ROLE_PERMISSIONS
 from app.services.scoping import unit_ref
 
@@ -263,31 +262,4 @@ def audit_events(
             }
             for e, username in rows
         ],
-    }
-
-
-@router.get("/config")
-def config(principal: Principal = Depends(require("admin.view"))):
-    s = get_settings()
-    return {
-        "app_env": s.app_env,
-        "demo_mode": s.demo_mode,
-        "auth_mode": s.auth_mode,
-        "session_ttl_minutes": s.session_ttl_minutes,
-        "privacy_min_group_employees": s.privacy_min_group_employees,
-        "privacy_min_group_cases": s.privacy_min_group_cases,
-        "employee_level_simulation_enabled": s.employee_level_simulation_enabled,
-        "retention_cases_days": s.retention_cases_days,
-        "retention_audit_days": s.retention_audit_days,
-        "learning_method": {
-            "version": learning.METHOD_VERSION,
-            "weights": learning.WEIGHTS,
-            "window_days": learning.WINDOW_DAYS,
-            "follow_up_days": learning.FOLLOW_UP_DAYS,
-            "settle_days": learning.SETTLE_DAYS,
-            "understanding_threshold": learning.UNDERSTANDING_THRESHOLD,
-            "follow_up_threshold": learning.FOLLOW_UP_THRESHOLD,
-            "note": "Illustrative mock settings only - not approved employment criteria.",
-        },
-        "simulation": {"scenario_code": simulation.SCENARIO_CODE, "interventions": simulation.INTERVENTIONS},
     }

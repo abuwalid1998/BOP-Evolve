@@ -12,6 +12,7 @@ from app.models.cases import (
     ServiceCase,
     SourceSystem,
 )
+from app.models.config import AppSetting, DbConnection
 from app.models.learning import CoachingSession, LearningGeneration, TrainingRecord
 from app.models.ops import (
     AuditEvent,
@@ -26,6 +27,8 @@ from app.models.ops import (
 from app.models.org import AuthSession, EmployeeProfile, OrgUnit, Role, User, UserRole
 
 __all__ = [
+    "AppSetting",
+    "DbConnection",
     "AuditEvent",
     "AuthSession",
     "CoachingSession",

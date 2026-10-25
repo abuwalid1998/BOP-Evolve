@@ -23,7 +23,7 @@ from app.models import (
     SimulationRun,
 )
 from app.pipeline.catalogue import CASE_TYPES
-from app.services import audit, simulation
+from app.services import audit, settings_store, simulation
 from app.services.rbac import descendants
 from app.services.scoping import case_condition, unit_ref
 
@@ -39,8 +39,9 @@ def team_insights(
     principal: Principal = Depends(require("insights.view")),
     db: Session = Depends(get_db),
 ):
-    settings = get_settings()
     scope = principal.scope(db, "insights.view")
+    min_employees = settings_store.get(db, "privacy.min_group_employees")
+    min_cases = settings_store.get(db, "privacy.min_group_cases")
     since = utcnow() - timedelta(days=days)
     units = {u.id: u for u in db.scalars(select(OrgUnit))}
 
@@ -135,7 +136,7 @@ def team_insights(
     for gid, g in groups.items():
         unit = units[gid]
         n_emp = len(g["employees"])
-        suppressed = n_emp < settings.privacy_min_group_employees or g["cases"] < settings.privacy_min_group_cases
+        suppressed = n_emp < min_employees or g["cases"] < min_cases
         gens = [generation_of[e] for e in g["employees"] if e in generation_of]
         row = {"org_unit": unit_ref(unit), "suppressed": suppressed, "employees": n_emp if not suppressed else None}
         if not suppressed:
@@ -164,8 +165,8 @@ def team_insights(
         "level": level,
         "window_days": days,
         "privacy": {
-            "min_employees": settings.privacy_min_group_employees,
-            "min_cases": settings.privacy_min_group_cases,
+            "min_employees": min_employees,
+            "min_cases": min_cases,
         },
         "groups": rows,
         "note": "Raw counts are not comparable across groups without accounting for workload and case mix.",

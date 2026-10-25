@@ -11,7 +11,9 @@ approved employment criteria and must be validated by HR, Risk, Compliance and
 model-governance owners before any real use.
 """
 
-from dataclasses import dataclass, field
+import hashlib
+import json
+from dataclasses import asdict, dataclass, field
 from datetime import datetime, timedelta
 
 from sqlalchemy import select
@@ -42,6 +44,32 @@ UNDERSTANDING_THRESHOLD = 0.70
 FOLLOW_UP_THRESHOLD = 0.85
 MIN_TREND_CASES = 5
 
+
+@dataclass(frozen=True)
+class LearningConfig:
+    """Method parameters. Defaults are the illustrative demo values; Super Admins may tune them."""
+
+    weights: dict = field(default_factory=lambda: dict(WEIGHTS))
+    window_days: int = WINDOW_DAYS
+    follow_up_days: int = FOLLOW_UP_DAYS
+    trend_days: int = TREND_DAYS
+    min_follow_up_cases: int = MIN_FOLLOW_UP_CASES
+    understanding_threshold: float = UNDERSTANDING_THRESHOLD
+    follow_up_threshold: float = FOLLOW_UP_THRESHOLD
+    min_trend_cases: int = MIN_TREND_CASES
+    settle_days: int = SETTLE_DAYS
+
+    @property
+    def method_version(self) -> str:
+        """``demo-1.0`` for the defaults; tuned parameters get a short fingerprint so history stays traceable."""
+        if self == DEFAULT_CONFIG:
+            return METHOD_VERSION
+        digest = hashlib.sha256(json.dumps(asdict(self), sort_keys=True).encode()).hexdigest()[:8]
+        return f"{METHOD_VERSION}+{digest}"
+
+
+DEFAULT_CONFIG = LearningConfig()
+
 _DECISION_STATUS = {"confirm": "CONFIRMED", "amend": "AMENDED", "dispute_upheld": "DISMISSED", "dismiss": "DISMISSED"}
 _COUNTED = {"CONFIRMED", "AMENDED"}
 
@@ -68,14 +96,16 @@ class Evaluation:
     gates: list[dict] = field(default_factory=list)
     gaps: list[str] = field(default_factory=list)
     warnings: list[str] = field(default_factory=list)
+    config: LearningConfig = DEFAULT_CONFIG
 
     def snapshot(self, as_of: datetime) -> dict:
         return {
             "as_of": as_of.isoformat(),
-            "method_version": METHOD_VERSION,
-            "weights": WEIGHTS,
+            "method_version": self.config.method_version,
+            "weights": self.config.weights,
             "weights_note": "Illustrative mock settings only - not approved employment criteria.",
-            "window_days": WINDOW_DAYS,
+            "window_days": self.config.window_days,
+            "parameters": asdict(self.config),
             "indicators": self.indicators,
             "gates": self.gates,
             "gaps": self.gaps,
@@ -120,15 +150,16 @@ def _clamp(value: float) -> float:
     return max(0.0, min(1.0, value))
 
 
-def evaluate(ev: EmployeeEvidence, as_of: datetime | None = None) -> Evaluation:
+def evaluate(ev: EmployeeEvidence, as_of: datetime | None = None, config: LearningConfig | None = None) -> Evaluation:
+    cfg = config or DEFAULT_CONFIG
     as_of = as_of or utcnow()
-    window_start = as_of - timedelta(days=WINDOW_DAYS)
+    window_start = as_of - timedelta(days=cfg.window_days)
     case_by_id = {c.id: c for c in ev.cases}
     visible_cases = [c for c in ev.cases if c.occurred_at <= as_of]
 
     status = {f.id: _status_at(f, ev.decisions, as_of) for f in ev.findings}
     counted = [f for f in ev.findings if status[f.id] in _COUNTED]
-    settle_cutoff = as_of - timedelta(days=SETTLE_DAYS)
+    settle_cutoff = as_of - timedelta(days=cfg.settle_days)
     in_window = [f for f in counted if case_by_id[f.case_id].occurred_at >= window_start]
     cycle = [f for f in in_window if f.reviewed_at and f.reviewed_at <= settle_cutoff]
     in_progress = [f for f in in_window if f not in cycle]
@@ -163,7 +194,7 @@ def evaluate(ev: EmployeeEvidence, as_of: datetime | None = None) -> Evaluation:
     handled_correctly = 0
     for f in cycle:
         origin = case_by_id[f.case_id]
-        horizon = min(origin.occurred_at + timedelta(days=FOLLOW_UP_DAYS), as_of)
+        horizon = min(origin.occurred_at + timedelta(days=cfg.follow_up_days), as_of)
         for c in visible_cases:
             if c.case_type == origin.case_type and origin.occurred_at < c.occurred_at <= horizon:
                 comparable += 1
@@ -171,12 +202,12 @@ def evaluate(ev: EmployeeEvidence, as_of: datetime | None = None) -> Evaluation:
     indicators["follow_up"] = {"value": handled_correctly / comparable if comparable else None, "n": comparable}
 
     # Recurrence trend, adjusted for exposure (findings per case, recent vs prior period).
-    recent_start = as_of - timedelta(days=TREND_DAYS)
-    prior_start = recent_start - timedelta(days=TREND_DAYS)
+    recent_start = as_of - timedelta(days=cfg.trend_days)
+    prior_start = recent_start - timedelta(days=cfg.trend_days)
     recent_cases = [c for c in visible_cases if recent_start < c.occurred_at <= as_of]
     prior_cases = [c for c in visible_cases if prior_start < c.occurred_at <= recent_start]
     trend_value = None
-    if len(recent_cases) >= MIN_TREND_CASES and len(prior_cases) >= MIN_TREND_CASES:
+    if len(recent_cases) >= cfg.min_trend_cases and len(prior_cases) >= cfg.min_trend_cases:
         recent_rate = sum(c.id in flagged_case_ids for c in recent_cases) / len(recent_cases)
         prior_rate = sum(c.id in flagged_case_ids for c in prior_cases) / len(prior_cases)
         top = max(recent_rate, prior_rate)
@@ -187,13 +218,13 @@ def evaluate(ev: EmployeeEvidence, as_of: datetime | None = None) -> Evaluation:
     }
 
     available = {k: v["value"] for k, v in indicators.items() if v["value"] is not None}
-    coverage = sum(WEIGHTS[k] for k in available)
-    score = sum(WEIGHTS[k] * v for k, v in available.items()) / coverage if coverage else None
+    coverage = sum(cfg.weights[k] for k in available)
+    score = sum(cfg.weights[k] * v for k, v in available.items()) / coverage if coverage else None
     for key, item in indicators.items():
-        item["weight"] = WEIGHTS[key]
+        item["weight"] = cfg.weights[key]
         if item["value"] is None:
             warnings.append(f"missing_component:{key}")
-    if comparable and comparable < MIN_FOLLOW_UP_CASES:
+    if comparable and comparable < cfg.min_follow_up_cases:
         warnings.append("low_follow_up_sample")
     warnings.append("synthetic_demo_data")
 
@@ -219,7 +250,7 @@ def evaluate(ev: EmployeeEvidence, as_of: datetime | None = None) -> Evaluation:
             "G2",
             "understanding_not_confirmed",
             all(understood(f) for f in cycle)
-            and (indicators["understanding"]["value"] or 0) >= UNDERSTANDING_THRESHOLD,
+            and (indicators["understanding"]["value"] or 0) >= cfg.understanding_threshold,
         ),
         (
             "G3",
@@ -232,7 +263,8 @@ def evaluate(ev: EmployeeEvidence, as_of: datetime | None = None) -> Evaluation:
         (
             "G5",
             "follow_up_not_validated",
-            comparable >= MIN_FOLLOW_UP_CASES and (indicators["follow_up"]["value"] or 0) >= FOLLOW_UP_THRESHOLD,
+            comparable >= cfg.min_follow_up_cases
+            and (indicators["follow_up"]["value"] or 0) >= cfg.follow_up_threshold,
         ),
     ]
     generation = "G0"
@@ -264,6 +296,7 @@ def evaluate(ev: EmployeeEvidence, as_of: datetime | None = None) -> Evaluation:
         gates=gates,
         gaps=gaps,
         warnings=warnings,
+        config=cfg,
     )
 
 
@@ -283,6 +316,7 @@ def refresh_generation(
     as_of: datetime | None = None,
     approver_id: str | None = None,
     evidence: EmployeeEvidence | None = None,
+    config: LearningConfig | None = None,
 ) -> LearningGeneration | None:
     """Evaluate the profile and append a new version if it materially changed.
 
@@ -290,7 +324,7 @@ def refresh_generation(
     seed script to build historical, already-approved history).
     """
     as_of = as_of or utcnow()
-    result = evaluate(evidence or load_evidence(db, employee_id), as_of)
+    result = evaluate(evidence or load_evidence(db, employee_id), as_of, config)
     current = latest_version(db, employee_id)
 
     if current is not None:
@@ -322,7 +356,7 @@ def refresh_generation(
         coverage=result.coverage,
         indicator_snapshot=result.snapshot(as_of),
         evidence_count=result.evidence_count,
-        method_version=METHOD_VERSION,
+        method_version=result.config.method_version,
         supersedes_id=current.id if current else None,
         created_at=as_of,
     )

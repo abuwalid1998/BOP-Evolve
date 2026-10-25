@@ -9,7 +9,7 @@ from app.api.deps import Principal, get_principal, load_grants
 from app.config import get_settings
 from app.db import get_db, utcnow
 from app.models import AuthSession, EmployeeProfile, Role, User, UserRole
-from app.services import audit
+from app.services import audit, settings_store
 from app.services.rbac import permissions_for
 from app.services.security import issue_token, verify_password
 
@@ -54,7 +54,7 @@ def login(body: LoginRequest, request: Request, db: Session = Depends(get_db)):
         db.commit()
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid username or password")
 
-    expires_at = utcnow() + timedelta(minutes=settings.session_ttl_minutes)
+    expires_at = utcnow() + timedelta(minutes=settings_store.get(db, "security.session_ttl_minutes"))
     session = AuthSession(user_id=user.id, expires_at=expires_at)
     db.add(session)
     db.flush()

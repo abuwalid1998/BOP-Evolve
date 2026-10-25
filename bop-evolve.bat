@@ -445,7 +445,12 @@ function Initialize-Project {
         $rng.GetBytes($bytes)
         $rng.Dispose()
         Set-DotEnvValue 'JWT_SECRET' (-join ($bytes | ForEach-Object { $_.ToString('x2') }))
-        Write-Ok 'Created .env from .env.example with a random local session secret'
+        $keyBytes = New-Object byte[] 32
+        $rng = [Security.Cryptography.RandomNumberGenerator]::Create()
+        $rng.GetBytes($keyBytes)
+        $rng.Dispose()
+        Set-DotEnvValue 'CONFIG_SECRET_KEY' ([Convert]::ToBase64String($keyBytes).Replace('+', '-').Replace('/', '_'))
+        Write-Ok 'Created .env from .env.example with random local secrets'
     } else {
         Write-Ok 'Using the existing .env'
     }
