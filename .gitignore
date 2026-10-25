@@ -1,0 +1,28 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+
+# Node / build
+node_modules/
+dist/
+dist-electron/
+release/
+*.tsbuildinfo
+
+# Local config — never commit real credentials
+.env
+.env.*
+!.env.example
+*.db
+*.sqlite
+
+# OS / editors
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
