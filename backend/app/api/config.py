@@ -5,14 +5,14 @@ from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field, model_validator
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.api.deps import Principal, require
 from app.config import get_settings
 from app.db import get_db, utcnow
-from app.models import DbConnection, Pipeline, SourceSystem
-from app.services import audit, dbschema, secrets, settings_store
+from app.models import AIGeneration, DbConnection, Pipeline, SourceSystem
+from app.services import ai, audit, dbschema, secrets, settings_store
 
 router = APIRouter(prefix="/api/config", tags=["configuration"])
 public_router = APIRouter(prefix="/api/public", tags=["public"])
@@ -104,6 +104,96 @@ def reset_app_setting(
         )
     db.commit()
     return {"changed": sorted(changed), **settings_store.describe(db)}
+
+
+# ------------------------------------------------------------- AI assistant
+@router.get("/ai")
+def ai_config(principal: Principal = Depends(require("config.view")), db: Session = Depends(get_db)):
+    """Assistant status. The key itself is never returned, only where it comes from and a masked hint."""
+    return ai.status(db)
+
+
+class AiKeyBody(BaseModel):
+    api_key: str = Field(min_length=20, max_length=200, pattern=r"^[A-Za-z0-9_\-]+$")
+
+
+@router.put("/ai/key")
+def set_ai_key(
+    body: AiKeyBody, principal: Principal = Depends(require("config.manage")), db: Session = Depends(get_db)
+):
+    """Store the Groq API key encrypted (it overrides GROQ_API_KEY from the environment)."""
+    ai.set_key(db, body.api_key, principal.user.id)
+    audit.record(
+        db,
+        actor_user_id=principal.user.id,
+        action="config.ai_key_set",
+        resource_type="settings",
+        resource_id=ai.KEY_SETTING,
+        request_id=principal.request_id,
+    )
+    db.commit()
+    return ai.status(db)
+
+
+@router.delete("/ai/key")
+def clear_ai_key(principal: Principal = Depends(require("config.manage")), db: Session = Depends(get_db)):
+    removed = ai.clear_key(db)
+    if removed:
+        audit.record(
+            db,
+            actor_user_id=principal.user.id,
+            action="config.ai_key_cleared",
+            resource_type="settings",
+            resource_id=ai.KEY_SETTING,
+            request_id=principal.request_id,
+        )
+    db.commit()
+    return ai.status(db)
+
+
+@router.post("/ai/test")
+def test_ai(principal: Principal = Depends(require("config.manage")), db: Session = Depends(get_db)):
+    """One small live request to the provider with the configured key and model."""
+    try:
+        result = ai.test_connection(db)
+        outcome = "success"
+    except ai.AIError as exc:
+        result = {"ok": False, "code": exc.code, "message": exc.message}
+        outcome = "failure"
+    audit.record(
+        db,
+        actor_user_id=principal.user.id,
+        action="config.ai_test",
+        resource_type="settings",
+        request_id=principal.request_id,
+        outcome=outcome,
+        metadata={"error": result.get("code")},
+    )
+    db.commit()
+    return result
+
+
+@router.get("/ai/usage")
+def ai_usage(principal: Principal = Depends(require("config.view")), db: Session = Depends(get_db)):
+    """Calls in the last 30 days by feature (from the AI generation log)."""
+    since = utcnow() - timedelta(days=30)
+    rows = db.execute(
+        select(
+            AIGeneration.feature,
+            AIGeneration.status,
+            func.count(),
+            func.coalesce(func.sum(AIGeneration.prompt_tokens), 0),
+            func.coalesce(func.sum(AIGeneration.completion_tokens), 0),
+        )
+        .where(AIGeneration.created_at >= since)
+        .group_by(AIGeneration.feature, AIGeneration.status)
+    ).all()
+    out: dict[str, dict] = {}
+    for feature, status_, n, p_tokens, c_tokens in rows:
+        f = out.setdefault(feature, {"feature": feature, "ok": 0, "error": 0, "tokens": 0})
+        f[status_] = f.get(status_, 0) + n
+        f["tokens"] += int(p_tokens) + int(c_tokens)
+    return {"days": 30, "features": sorted(out.values(), key=lambda f: f["feature"])}
 
 
 # ---------------------------------------------------------------- pipelines

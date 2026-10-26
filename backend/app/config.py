@@ -52,6 +52,13 @@ class Settings(BaseSettings):
     # none in production.
     db_connection_allowed_hosts: str = ""
 
+    # Generative assistant (Groq, OpenAI-compatible API). The key comes from the environment
+    # or from System Configuration (stored encrypted); it is never committed or sent to the browser.
+    groq_api_key: str = ""
+    groq_base_url: str = "https://api.groq.com/openai/v1"
+    groq_model: str = "openai/gpt-oss-20b"
+    ai_timeout_seconds: int = 45
+
     @field_validator("database_url")
     @classmethod
     def _normalise_driver(cls, value: str) -> str:

@@ -1,5 +1,6 @@
 """SQLAlchemy models. Importing this package registers every table on ``Base.metadata``."""
 
+from app.models.ai import AIGeneration
 from app.models.cases import (
     EmployeeResponse,
     EvidenceRef,
@@ -14,6 +15,13 @@ from app.models.cases import (
 )
 from app.models.config import AppSetting, DbConnection
 from app.models.learning import CoachingSession, LearningGeneration, TrainingRecord
+from app.models.onboarding import (
+    OnboardingImport,
+    OnboardingInvite,
+    OnboardingProgress,
+    OnboardingWave,
+    PolicyAcknowledgement,
+)
 from app.models.ops import (
     AuditEvent,
     IngestionRun,
@@ -25,9 +33,13 @@ from app.models.ops import (
     SimulationRun,
 )
 from app.models.org import AuthSession, EmployeeProfile, OrgUnit, Role, User, UserRole
+from app.models.workplace import AttendanceDay, ConductObservation, WorkplaceException
 
 __all__ = [
+    "AIGeneration",
     "AppSetting",
+    "AttendanceDay",
+    "ConductObservation",
     "DbConnection",
     "AuditEvent",
     "AuthSession",
@@ -43,8 +55,13 @@ __all__ = [
     "MistakeRule",
     "ModelRegistry",
     "ModelRun",
+    "OnboardingImport",
+    "OnboardingInvite",
+    "OnboardingProgress",
+    "OnboardingWave",
     "OrgUnit",
     "Pipeline",
+    "PolicyAcknowledgement",
     "PolicyVersion",
     "QuarantinedRecord",
     "ReviewDecision",
@@ -56,4 +73,5 @@ __all__ = [
     "TrainingRecord",
     "User",
     "UserRole",
+    "WorkplaceException",
 ]

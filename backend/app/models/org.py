@@ -1,6 +1,6 @@
 from datetime import date, datetime
 
-from sqlalchemy import Boolean, CheckConstraint, Date, ForeignKey, String, UniqueConstraint
+from sqlalchemy import Boolean, CheckConstraint, Date, ForeignKey, Integer, String, UniqueConstraint, true
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db import Base, UTCDateTime, new_id, utcnow
@@ -24,7 +24,8 @@ class User(Base):
 
     roles: Mapped[list["UserRole"]] = relationship(back_populates="user", cascade="all, delete-orphan")
 
-    __table_args__ = (CheckConstraint("status IN ('active','disabled')", name="status"),)
+    # invited: created by a roster import, waiting for the employee to activate the account.
+    __table_args__ = (CheckConstraint("status IN ('active','disabled','invited')", name="status"),)
 
 
 class Role(Base):
@@ -95,5 +96,13 @@ class EmployeeProfile(Base):
     role_title: Mapped[str] = mapped_column(String(80))
     start_date: Mapped[date] = mapped_column(Date)
     status: Mapped[str] = mapped_column(String(16), default="active")
+    # HR system employee number (from the roster import). Restricted: never sent to the AI assistant.
+    external_ref: Mapped[str | None] = mapped_column(String(40), unique=True)
+    grade: Mapped[str | None] = mapped_column(String(24))
+    customer_facing: Mapped[bool] = mapped_column(Boolean, default=True, server_default=true())
+    # Scheduled working day, minutes after local midnight (08:00-15:00 by default).
+    work_start_min: Mapped[int] = mapped_column(Integer, default=480, server_default="480")
+    work_end_min: Mapped[int] = mapped_column(Integer, default=900, server_default="900")
+    manager_employee_id: Mapped[str | None] = mapped_column(ForeignKey("employee_profiles.id"))
 
-    org_unit: Mapped[OrgUnit] = relationship()
+    org_unit: Mapped[OrgUnit] = relationship(foreign_keys=[org_unit_id])

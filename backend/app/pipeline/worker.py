@@ -22,6 +22,7 @@ from sqlalchemy.orm import Session
 from app.config import get_settings
 from app.db import SessionLocal, new_id, utcnow
 from app.models import (
+    AttendanceDay,
     EmployeeProfile,
     EvidenceRef,
     Finding,
@@ -38,7 +39,7 @@ from app.models import (
     SourceSystem,
 )
 from app.pipeline.catalogue import CASE_TYPES, INTERACTION_TYPES, generate_attributes
-from app.services import rules_engine
+from app.services import rules_engine, workplace
 
 log = logging.getLogger("bop_evolve.worker")
 CASE_PIPELINES = {"qa-reviews", "crm-cases", "complaints", "call-metadata"}
@@ -264,10 +265,40 @@ def tick(db: Session, rng: random.Random) -> None:
         if model.drift_score is not None:
             model.drift_score = round(min(0.6, max(0.0, model.drift_score + rng.uniform(-0.01, 0.01))), 3)
 
+    simulate_time_clock(db)
+
     beat = db.get(ServiceHeartbeat, "pipeline-worker") or ServiceHeartbeat(name="pipeline-worker")
     beat.last_beat_at, beat.detail = now, {"status": "running"}
     db.merge(beat)
     db.commit()
+
+
+TIME_CLOCK_DAYS = 30  # history simulated for newly imported staff
+TIME_CLOCK_BATCH = 4000  # time-clock days written per tick
+
+
+def simulate_time_clock(db: Session) -> int:
+    """Simulated time-and-attendance feed: yesterday's records for everyone, and up to 30 days of history
+    for staff imported from the roster, in batches so that 3,400+ people never block a tick."""
+    if not get_settings().demo_mode:
+        return 0
+    today = utcnow().date()
+    last = today - timedelta(days=1)
+    while not workplace.is_working_day(last):
+        last -= timedelta(days=1)
+    # Days are filled oldest first, so anyone with a record for the last working day is up to date.
+    current = select(AttendanceDay.employee_id).where(AttendanceDay.work_date == last)
+    employees = list(
+        db.scalars(
+            select(EmployeeProfile)
+            .where(EmployeeProfile.status == "active", EmployeeProfile.id.not_in(current))
+            .order_by(EmployeeProfile.id)
+        )
+    )
+    written = workplace.backfill(db, employees, TIME_CLOCK_DAYS, today, limit=TIME_CLOCK_BATCH)
+    if written:
+        log.info("Simulated %s time-clock days", written)
+    return written
 
 
 def main() -> None:

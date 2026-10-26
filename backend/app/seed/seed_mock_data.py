@@ -52,7 +52,8 @@ from app.pipeline.catalogue import (
     explanation,
     generate_attributes,
 )
-from app.services import learning, rules_engine
+from app.seed import workplace_seed
+from app.services import ai, learning, rules_engine
 from app.services.rbac import ROLE_CATALOGUE
 from app.services.security import hash_password
 
@@ -362,6 +363,17 @@ class Seeder:
                 0.09,
             ),
             (
+                ai.REGISTRY_NAME,
+                "1.0",
+                "MONITORING",
+                ai.REGISTRY_PURPOSE,
+                ai.REGISTRY_LIMITATIONS,
+                None,
+                None,
+                None,
+                None,
+            ),
+            (
                 "Transcript summariser",
                 "0.2",
                 "SUSPENDED",
@@ -472,6 +484,7 @@ class Seeder:
             )
             self.section_leads[section.id] = lead
             for _ in range(self.rng.randint(4, 6)):
+                contact_centre = scode in ("VOICE", "CHAT")
                 profile = self.add(
                     EmployeeProfile(
                         id=new_id("EMP"),
@@ -479,6 +492,9 @@ class Seeder:
                         org_unit_id=section.id,
                         role_title=title,
                         start_date=date(2019 + self.rng.randint(0, 6), self.rng.randint(1, 12), 1),
+                        customer_facing=True,
+                        work_start_min=540 if contact_centre else 480,
+                        work_end_min=1020 if contact_centre else 900,
                     )
                 )
                 self.employees.append((profile, scode))
@@ -958,7 +974,20 @@ class Seeder:
         self.seed_follow_ups()
         self.flush()
         self.seed_generations()
+        self.flush()
+        self.seed_workplace()
         self.db.commit()
+
+    def seed_workplace(self) -> None:
+        """Workplace policies HR-01..03, their rules and ~4 months of simulated time-clock history."""
+        workplace_seed.ensure_reference(
+            self.db,
+            self.units["DEP-OPS"].id,
+            self.users["hr.chief"].id,
+            self.users["risk.compliance"].id,
+            self.start,
+        )
+        workplace_seed.seed_history(self.db, today=self.now.date())
 
 
 def is_seeded(db: Session) -> bool:

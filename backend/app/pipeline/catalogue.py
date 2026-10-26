@@ -403,7 +403,12 @@ DEFAULT_CONDITIONS: dict[str, dict[str, dict]] = {
 
 
 def fields_for(case_type: str) -> list[str]:
-    return [k for k, f in FIELDS.items() if f["case_types"] is None or case_type in f["case_types"]]
+    """Facts a rule for ``case_type`` may use. Common (None) facts belong to customer-service types only."""
+    return [
+        k
+        for k, f in FIELDS.items()
+        if (f["case_types"] is None and case_type in CASE_TYPES) or (f["case_types"] and case_type in f["case_types"])
+    ]
 
 
 def generate_attributes(case_type: str, interaction_type: str, complexity_band: str, rng, breach: bool = False) -> dict:
@@ -453,3 +458,258 @@ def generate_attributes(case_type: str, interaction_type: str, complexity_band: 
         attrs["financing_discussed"] = breach or rng.random() < 0.6
         attrs["affordability_checked"] = (not breach) and attrs["financing_discussed"]
     return attrs
+
+
+# --------------------------------------------------------------------------- workplace policies
+# Internal HR policies evaluated on daily time-clock records and supervisor observations.
+# Same rule language and approval workflow as the customer-service controls.
+WORKPLACE_TYPES: dict[str, dict] = {
+    "attendance": {
+        "label": ("Attendance & working time", "الحضور ووقت العمل"),
+        "source": ("Daily time-clock record", "سجل ساعة الدوام اليومي"),
+    },
+    "dress_code": {
+        "label": ("Dress code & appearance", "اللباس والمظهر المهني"),
+        "source": ("Supervisor observation", "ملاحظة المشرف"),
+    },
+}
+
+WEEKDAYS = [
+    ("sat", "Saturday", "السبت"),
+    ("sun", "Sunday", "الأحد"),
+    ("mon", "Monday", "الاثنين"),
+    ("tue", "Tuesday", "الثلاثاء"),
+    ("wed", "Wednesday", "الأربعاء"),
+    ("thu", "Thursday", "الخميس"),
+    ("fri", "Friday", "الجمعة"),
+]
+
+FIELDS.update(
+    {
+        "minutes_late": {
+            "type": "number",
+            "label": ("Minutes late at check-in", "دقائق التأخر عند تسجيل الدخول"),
+            "case_types": ["attendance"],
+            "unit": ("min", "دقيقة"),
+            "min": 0,
+            "max": 600,
+        },
+        "early_leave_minutes": {
+            "type": "number",
+            "label": ("Minutes left before end of shift", "دقائق المغادرة قبل نهاية الدوام"),
+            "case_types": ["attendance"],
+            "unit": ("min", "دقيقة"),
+            "min": 0,
+            "max": 600,
+        },
+        "missing_check_in": {
+            "type": "bool",
+            "label": ("Check-in missing", "تسجيل الدخول مفقود"),
+            "case_types": ["attendance"],
+        },
+        "missing_check_out": {
+            "type": "bool",
+            "label": ("Check-out missing", "تسجيل الخروج مفقود"),
+            "case_types": ["attendance"],
+        },
+        "unapproved_absence": {
+            "type": "bool",
+            "label": ("Absent without approved leave", "غياب دون إجازة معتمدة"),
+            "case_types": ["attendance"],
+        },
+        "break_minutes": {
+            "type": "number",
+            "label": ("Total break time", "مجموع وقت الاستراحة"),
+            "case_types": ["attendance"],
+            "unit": ("min", "دقيقة"),
+            "min": 0,
+            "max": 600,
+        },
+        "break_overrun_minutes": {
+            "type": "number",
+            "label": ("Break time beyond the allowance", "وقت الاستراحة الزائد عن المسموح"),
+            "case_types": ["attendance"],
+            "unit": ("min", "دقيقة"),
+            "min": 0,
+            "max": 600,
+        },
+        "break_count": {
+            "type": "number",
+            "label": ("Number of breaks", "عدد الاستراحات"),
+            "case_types": ["attendance"],
+            "min": 0,
+            "max": 20,
+        },
+        "weekday": {
+            "type": "enum",
+            "label": ("Day of the week", "يوم الأسبوع"),
+            "case_types": ["attendance"],
+            "options": WEEKDAYS,
+        },
+        "customer_facing": {
+            "type": "bool",
+            "label": ("Customer-facing role", "وظيفة تتعامل مع العملاء"),
+            "case_types": ["attendance", "dress_code"],
+        },
+        "dress_item": {
+            "type": "enum",
+            "label": ("Area observed", "البند الملاحَظ"),
+            "case_types": ["dress_code"],
+            "options": [
+                ("formal_attire", "Formal business attire", "اللباس الرسمي"),
+                ("id_badge", "Staff ID badge worn", "ارتداء بطاقة الموظف"),
+                ("uniform", "Branch uniform", "الزي الموحد للفرع"),
+                ("grooming", "Grooming & presentation", "المظهر العام"),
+            ],
+        },
+        "dress_compliant": {
+            "type": "bool",
+            "label": ("Dress code met", "الالتزام بقواعد اللباس"),
+            "case_types": ["dress_code"],
+        },
+        "prior_dress_issues_90d": {
+            "type": "number",
+            "label": ("Earlier dress-code issues (90 days)", "ملاحظات لباس سابقة (90 يوماً)"),
+            "case_types": ["dress_code"],
+            "min": 0,
+            "max": 50,
+        },
+    }
+)
+
+# Policies and rules shipped with the demo (rule code -> definition). Thresholds are illustrative.
+WORKPLACE_POLICIES: dict[str, dict] = {
+    "HR-01": {
+        "title": ("Working hours & attendance", "ساعات العمل والحضور"),
+        "summary": (
+            "Staff check in by the start of their scheduled shift and check out at its end using the time clock. "
+            "Absence requires approved leave; a missing check-in or check-out must be corrected with the line "
+            "manager the same day.",
+            "يسجّل الموظفون دخولهم عند بداية الدوام المقرر وخروجهم عند نهايته عبر ساعة الدوام. ويتطلب الغياب "
+            "إجازة معتمدة، ويجب تصحيح أي تسجيل دخول أو خروج مفقود مع المدير المباشر في اليوم نفسه.",
+        ),
+    },
+    "HR-02": {
+        "title": ("Breaks", "الاستراحات"),
+        "summary": (
+            "Breaks are taken within the daily allowance of 60 minutes and scheduled so that counters and "
+            "phones stay covered during opening hours.",
+            "تؤخذ الاستراحات ضمن الحد اليومي المسموح البالغ 60 دقيقة، وتُنظَّم بحيث تبقى الشبابيك والهواتف "
+            "مغطاة خلال ساعات العمل.",
+        ),
+    },
+    "HR-03": {
+        "title": ("Dress code & professional appearance", "قواعد اللباس والمظهر المهني"),
+        "summary": (
+            "Staff wear formal business attire or the branch uniform and display their staff ID badge at all "
+            "times; customer-facing staff are held to this standard at the counter.",
+            "يرتدي الموظفون اللباس الرسمي أو الزي الموحد للفرع ويُظهرون بطاقة الموظف في جميع الأوقات، "
+            "ويلتزم موظفو الواجهة بهذا المعيار عند الشباك.",
+        ),
+    },
+}
+
+WORKPLACE_RULES: dict[str, dict] = {
+    "HR_LATE_ARRIVAL": {
+        "policy": "HR-01",
+        "category": "attendance",
+        "severity": "low",
+        "name": ("Late check-in beyond the grace period", "تأخر في تسجيل الدخول بعد فترة السماح"),
+        "description": (
+            "Arriving after the shift starts leaves counters and phones uncovered and delays customers.",
+            "الوصول بعد بدء الدوام يترك الشبابيك والهواتف دون تغطية ويؤخر خدمة العملاء.",
+        ),
+        "expected": ("Check in by the scheduled start time.", "تسجيل الدخول بحلول موعد بدء الدوام المقرر."),
+        "observed": ("Check-in recorded after the grace period.", "سُجّل الدخول بعد انتهاء فترة السماح."),
+        "conditions": {"match": "all", "conditions": [{"field": "minutes_late", "op": "gt", "value": 10}]},
+    },
+    "HR_EARLY_LEAVE": {
+        "policy": "HR-01",
+        "category": "attendance",
+        "severity": "low",
+        "name": ("Check-out before the end of shift", "تسجيل الخروج قبل نهاية الدوام"),
+        "description": (
+            "Leaving early reduces cover at closing time, when queues and cash balancing peak.",
+            "المغادرة المبكرة تقلل التغطية وقت الإغلاق حين تبلغ الطوابير وتسوية النقد ذروتها.",
+        ),
+        "expected": (
+            "Stay until the scheduled end of shift unless approved.",
+            "البقاء حتى نهاية الدوام ما لم تكن المغادرة معتمدة.",
+        ),
+        "observed": ("Check-out recorded before the end of shift.", "سُجّل الخروج قبل نهاية الدوام."),
+        "conditions": {"match": "all", "conditions": [{"field": "early_leave_minutes", "op": "gt", "value": 10}]},
+    },
+    "HR_MISSING_PUNCH": {
+        "policy": "HR-01",
+        "category": "attendance",
+        "severity": "medium",
+        "name": ("Missing check-in or check-out", "تسجيل دخول أو خروج مفقود"),
+        "description": (
+            "A missing record breaks the working-time trail used for payroll and branch security.",
+            "السجل المفقود يقطع أثر وقت العمل المستخدم في الرواتب وأمن الفرع.",
+        ),
+        "expected": (
+            "Record both check-in and check-out on the time clock.",
+            "تسجيل الدخول والخروج كليهما على ساعة الدوام.",
+        ),
+        "observed": ("One of the day's time-clock records is missing.", "أحد سجلات ساعة الدوام لليوم مفقود."),
+        "conditions": {
+            "match": "any",
+            "conditions": [
+                {"field": "missing_check_in", "op": "is_true", "value": None},
+                {"field": "missing_check_out", "op": "is_true", "value": None},
+            ],
+        },
+    },
+    "HR_UNAPPROVED_ABSENCE": {
+        "policy": "HR-01",
+        "category": "attendance",
+        "severity": "high",
+        "name": ("Absence without approved leave", "غياب دون إجازة معتمدة"),
+        "description": (
+            "Unplanned absence leaves the unit understaffed without notice.",
+            "الغياب غير المخطط يترك الوحدة دون كادر كافٍ ودون إشعار.",
+        ),
+        "expected": (
+            "Request and obtain leave approval before being absent.",
+            "طلب الإجازة والحصول على الموافقة قبل الغياب.",
+        ),
+        "observed": (
+            "No attendance and no approved leave for a scheduled day.",
+            "لا حضور ولا إجازة معتمدة في يوم دوام مقرر.",
+        ),
+        "conditions": {"match": "all", "conditions": [{"field": "unapproved_absence", "op": "is_true", "value": None}]},
+    },
+    "HR_BREAK_OVERRUN": {
+        "policy": "HR-02",
+        "category": "attendance",
+        "severity": "low",
+        "name": ("Break time over the allowance", "تجاوز وقت الاستراحة المسموح"),
+        "description": (
+            "Long breaks reduce counter cover and lengthen customer waiting times.",
+            "الاستراحات الطويلة تقلل تغطية الشبابيك وتطيل انتظار العملاء.",
+        ),
+        "expected": (
+            "Keep total breaks within the 60-minute daily allowance.",
+            "إبقاء مجموع الاستراحات ضمن 60 دقيقة يومياً.",
+        ),
+        "observed": ("Total break time exceeded the allowance.", "تجاوز مجموع وقت الاستراحة الحد المسموح."),
+        "conditions": {"match": "all", "conditions": [{"field": "break_overrun_minutes", "op": "gt", "value": 10}]},
+    },
+    "HR_DRESS_CODE": {
+        "policy": "HR-03",
+        "category": "dress_code",
+        "severity": "low",
+        "name": ("Dress code not met", "عدم الالتزام بقواعد اللباس"),
+        "description": (
+            "Professional appearance and a visible ID badge are part of customer trust and branch security.",
+            "المظهر المهني وظهور بطاقة الموظف جزء من ثقة العملاء وأمن الفرع.",
+        ),
+        "expected": (
+            "Wear formal attire or the uniform and display the staff ID badge.",
+            "ارتداء اللباس الرسمي أو الزي الموحد وإظهار بطاقة الموظف.",
+        ),
+        "observed": ("Supervisor recorded that the dress code was not met.", "سجّل المشرف عدم الالتزام بقواعد اللباس."),
+        "conditions": {"match": "all", "conditions": [{"field": "dress_compliant", "op": "is_false", "value": None}]},
+    },
+}

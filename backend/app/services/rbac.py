@@ -93,6 +93,11 @@ PERMISSIONS: dict[str, str] = {
     "rules.view": "View the policy and control-rule register",
     "rules.author": "Draft policy versions and control rules and submit them for approval",
     "rules.approve": "Approve, reject or retire policy versions and control rules (never one's own)",
+    "workplace.view": "View attendance, break and dress-code KPIs and exceptions within scope (own record for staff)",
+    "workplace.review": "Decide workplace-policy exceptions (excuse, confirm, dismiss) within scope, never one's own",
+    "workplace.observe": "Record dress-code observations for staff within scope",
+    "workplace.respond": "Explain one's own workplace-policy exceptions",
+    "onboarding.manage": "Import the staff roster, plan and launch onboarding waves and follow onboarding progress",
 }
 
 _MANAGER_BASE = {"dashboard.view", "cases.view", "learning.view", "insights.view", "reports.view"}
@@ -143,6 +148,14 @@ ROLE_PERMISSIONS: dict[str, set[str]] = {
     },
 }
 ROLE_PERMISSIONS["risk_compliance"] |= {"rules.author", "rules.approve"}
+# Workplace policies (attendance, breaks, dress code): line managers review, HR oversees, staff explain.
+for _role in ("branch_manager", "section_manager", "team_lead"):
+    ROLE_PERMISSIONS[_role] |= {"workplace.view", "workplace.review", "workplace.observe"}
+for _role in ("dept_head", "regional_manager"):
+    ROLE_PERMISSIONS[_role] |= {"workplace.view"}
+ROLE_PERMISSIONS["hr_chief"] |= {"workplace.view", "workplace.review", "onboarding.manage"}
+ROLE_PERMISSIONS["hr_ld"] |= {"workplace.view", "workplace.review", "onboarding.manage"}
+ROLE_PERMISSIONS["employee"] |= {"workplace.view", "workplace.respond"}
 # Everyone may read the rules they are assessed against.
 for _perms in ROLE_PERMISSIONS.values():
     _perms.add("rules.view")

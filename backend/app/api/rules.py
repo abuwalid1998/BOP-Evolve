@@ -18,7 +18,7 @@ from app.api.deps import Principal, require
 from app.db import get_db, new_id, utcnow
 from app.models import Finding, MistakeRule, OrgUnit, PolicyVersion, User
 from app.models.cases import RULE_KINDS, SEVERITIES
-from app.pipeline.catalogue import CASE_TYPES, FIELDS, OPERATORS
+from app.pipeline.catalogue import CASE_TYPES, FIELDS, OPERATORS, WORKPLACE_TYPES
 from app.services import audit, rules_engine
 
 router = APIRouter(prefix="/api/rules", tags=["rules"])
@@ -88,8 +88,23 @@ def catalogue(principal: Principal = Depends(require("rules.view"))):
     """Fields, operators and options the condition builder offers."""
     return {
         "case_types": [
-            {"code": code, "policy_code": spec["policy"][0], "default_rule": spec["rule"]}
-            for code, spec in CASE_TYPES.items()
+            *[
+                {"code": code, "policy_code": spec["policy"][0], "default_rule": spec["rule"], "domain": "service"}
+                for code, spec in CASE_TYPES.items()
+            ],
+            *[
+                {
+                    "code": code,
+                    "policy_code": None,
+                    "default_rule": None,
+                    "domain": "workplace",
+                    "label": spec["label"][0],
+                    "label_ar": spec["label"][1],
+                    "source": spec["source"][0],
+                    "source_ar": spec["source"][1],
+                }
+                for code, spec in WORKPLACE_TYPES.items()
+            ],
         ],
         "fields": [
             {
@@ -97,7 +112,8 @@ def catalogue(principal: Principal = Depends(require("rules.view"))):
                 "type": f["type"],
                 "label": f["label"][0],
                 "label_ar": f["label"][1],
-                "case_types": f["case_types"],
+                # Common facts (None) apply to every customer-service type, never to workplace records.
+                "case_types": f["case_types"] or list(CASE_TYPES),
                 "options": [{"value": v, "label": en, "label_ar": ar} for v, en, ar in f.get("options", [])],
                 "unit": f["unit"][0] if "unit" in f else None,
                 "unit_ar": f["unit"][1] if "unit" in f else None,

@@ -46,7 +46,12 @@ def test_privacy_threshold_override_takes_effect_and_is_audited(client, login, d
     insights = client.get("/api/insights/teams?level=branch", headers=login("analyst")).json()
     assert insights["privacy"]["min_employees"] == 50
     assert all(group["suppressed"] for group in insights["groups"])
-    event = db.scalar(select(AuditEvent).where(AuditEvent.action == "config.settings_update"))
+    event = db.scalar(
+        select(AuditEvent)
+        .where(AuditEvent.action == "config.settings_update")
+        .order_by(AuditEvent.occurred_at.desc())
+        .limit(1)
+    )
     assert event.metadata_redacted["changes"]["privacy.min_group_employees"]["to"] == 50
 
     reset = client.delete("/api/config/settings/privacy.min_group_employees", headers=headers)
