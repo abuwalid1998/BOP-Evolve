@@ -36,6 +36,9 @@ class SettingsError(ValueError):
         self.errors = errors
 
 
+# Generative-assistant features that can be switched off one by one.
+AI_FEATURES = ("policy_writing", "case_assistant", "employee_summary", "workplace_insights", "onboarding")
+
 WEIGHT_KEYS = {
     "learning.weight_understanding": "understanding",
     "learning.weight_action_completion": "action_completion",
@@ -61,6 +64,13 @@ def definitions() -> list[SettingDef]:
         SettingDef("learning.follow_up_days", "learning", "int", d.follow_up_days, 30, 365, 1),
         SettingDef("learning.settle_days", "learning", "int", d.settle_days, 0, 120, 1),
         SettingDef("learning.window_days", "learning", "int", d.window_days, 90, 730, 1),
+        SettingDef("workplace.grace_minutes", "workplace", "int", 10, 0, 60, 1),
+        SettingDef("workplace.break_allowance_minutes", "workplace", "int", 60, 15, 120, 5),
+        SettingDef("onboarding.code_ttl_days", "onboarding", "int", 14, 1, 90, 1),
+        SettingDef("ai.enabled", "ai", "enum", "on", choices=("on", "off")),
+        SettingDef("ai.model", "ai", "str", env.groq_model, max_length=80),
+        SettingDef("ai.reasoning_effort", "ai", "enum", "medium", choices=("low", "medium", "high")),
+        *[SettingDef(f"ai.feature.{name}", "ai", "enum", "on", choices=("on", "off")) for name in AI_FEATURES],
     ]
 
 

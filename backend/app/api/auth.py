@@ -9,7 +9,7 @@ from app.api.deps import Principal, get_principal, load_grants
 from app.config import get_settings
 from app.db import get_db, utcnow
 from app.models import AuthSession, EmployeeProfile, Role, User, UserRole
-from app.services import audit, settings_store
+from app.services import audit, onboarding, settings_store
 from app.services.rbac import permissions_for
 from app.services.security import issue_token, verify_password
 
@@ -34,12 +34,33 @@ def principal_payload(db: Session, user: User, grants, employee_id: str | None) 
     }
 
 
+def _start_session(db: Session, user: User, request_id: str | None, action: str = "auth.login") -> dict:
+    expires_at = utcnow() + timedelta(minutes=settings_store.get(db, "security.session_ttl_minutes"))
+    session = AuthSession(user_id=user.id, expires_at=expires_at)
+    db.add(session)
+    db.flush()
+    audit.record(
+        db, actor_user_id=user.id, action=action, resource_type="session", resource_id=session.id, request_id=request_id
+    )
+    db.commit()
+    grants = load_grants(db, user.id)
+    employee_id = db.scalar(select(EmployeeProfile.id).where(EmployeeProfile.user_id == user.id))
+    return {
+        "access_token": issue_token(user.id, session.id, expires_at),
+        "token_type": "bearer",
+        "expires_at": expires_at.isoformat(),
+        "user": principal_payload(db, user, grants, employee_id),
+    }
+
+
 @router.post("/login")
 def login(body: LoginRequest, request: Request, db: Session = Depends(get_db)):
     settings = get_settings()
     if settings.auth_mode != "mock":
         raise HTTPException(status.HTTP_501_NOT_IMPLEMENTED, "Use the configured SSO/OIDC provider to sign in")
-    user = db.scalar(select(User).where(User.username == body.username))
+    user = db.scalar(select(User).where(User.username == body.username.strip().lower()))
+    if user is None:
+        user = db.scalar(select(User).where(User.username == body.username))
     request_id = getattr(request.state, "request_id", None)
     if user is None or user.status != "active" or not verify_password(body.password, user.password_hash):
         audit.record(
@@ -53,28 +74,39 @@ def login(body: LoginRequest, request: Request, db: Session = Depends(get_db)):
         )
         db.commit()
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid username or password")
+    return _start_session(db, user, request_id)
 
-    expires_at = utcnow() + timedelta(minutes=settings_store.get(db, "security.session_ttl_minutes"))
-    session = AuthSession(user_id=user.id, expires_at=expires_at)
-    db.add(session)
-    db.flush()
-    audit.record(
-        db,
-        actor_user_id=user.id,
-        action="auth.login",
-        resource_type="session",
-        resource_id=session.id,
-        request_id=request_id,
-    )
-    db.commit()
-    grants = load_grants(db, user.id)
-    employee_id = db.scalar(select(EmployeeProfile.id).where(EmployeeProfile.user_id == user.id))
-    return {
-        "access_token": issue_token(user.id, session.id, expires_at),
-        "token_type": "bearer",
-        "expires_at": expires_at.isoformat(),
-        "user": principal_payload(db, user, grants, employee_id),
-    }
+
+class ActivateRequest(BaseModel):
+    username: str = Field(min_length=1, max_length=80)
+    code: str = Field(min_length=6, max_length=20)
+    password: str = Field(min_length=1, max_length=200)
+
+
+@router.post("/activate")
+def activate(body: ActivateRequest, request: Request, db: Session = Depends(get_db)):
+    """First sign-in for a new member of staff: one-time code from HR plus a password of their choice."""
+    if get_settings().auth_mode != "mock":
+        raise HTTPException(status.HTTP_501_NOT_IMPLEMENTED, "Accounts are activated through the SSO/OIDC provider")
+    problem = onboarding.password_problem(body.password)
+    if problem:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, {"code": problem})
+    request_id = getattr(request.state, "request_id", None)
+    try:
+        user = onboarding.activate(db, body.username, body.code, body.password)
+    except onboarding.ActivationError as exc:
+        audit.record(
+            db,
+            actor_user_id=None,
+            action="auth.activate",
+            resource_type="user",
+            request_id=request_id,
+            outcome="denied",
+            metadata={"username": body.username, "reason": exc.code},
+        )
+        db.commit()
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, {"code": exc.code}) from exc
+    return _start_session(db, user, request_id, action="auth.activate")
 
 
 @router.post("/logout")
@@ -110,6 +142,8 @@ def demo_accounts(db: Session = Depends(get_db)):
         .join(UserRole, UserRole.user_id == User.id)
         .join(Role, Role.id == UserRole.role_id)
         .where(or_(~User.username.like("lead.%"), User.username == "lead.br-n01-tel"))
+        .where(User.status == "active")
+        .where(~User.id.in_(select(EmployeeProfile.user_id).where(EmployeeProfile.external_ref.is_not(None))))
         .order_by(Role.code)
     ).all()
     return [{"username": r[0], "display_name": r[1], "display_name_ar": r[2], "role": r[3]} for r in rows]

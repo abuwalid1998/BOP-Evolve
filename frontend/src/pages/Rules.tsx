@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { Bar as RBar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { api, ApiError } from '../api/client';
 import { useAuth } from '../auth/AuthContext';
+import { AiMetaLine, AiPanel, aiErrorText, useAiStatus, type AiResult } from '../components/AiPanel';
 import { Icon } from '../components/Icon';
 import { PageBrief } from '../components/PageBrief';
 import { Badge, Card, Empty, ErrorBox, Field, Kpi, Loading, PageHead, StatusBadge, Toast } from '../components/ui';
@@ -674,6 +675,99 @@ function ConditionBuilder({
   );
 }
 
+interface RuleSuggestion {
+  name_en: string;
+  name_ar: string;
+  risk_en?: string;
+  risk_ar?: string;
+  expected_en: string;
+  expected_ar: string;
+  observed_en?: string;
+  observed_ar?: string;
+  severity: string;
+  kind: 'breach' | 'early_warning';
+  conditions: Definition | null;
+  condition_errors: Record<string, string> | null;
+  rationale_en?: string;
+  rationale_ar?: string;
+}
+
+/** Describe the control in plain words; the assistant proposes wording and conditions to review. */
+function RuleAiAssistant({
+  category,
+  policyId,
+  catalogue,
+  onApply,
+}: {
+  category: string;
+  policyId: string;
+  catalogue: Catalogue;
+  onApply: (s: RuleSuggestion) => void;
+}) {
+  const { t, lang, pick } = useI18n();
+  const status = useAiStatus();
+  const [text, setText] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [result, setResult] = useState<AiResult<RuleSuggestion> | null>(null);
+  const available = status.data?.available && status.data.features.policy_writing;
+  const run = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      setResult(
+        await api.post<AiResult<RuleSuggestion>>('/api/ai/rule-draft', {
+          description: text,
+          category,
+          policy_version_id: policyId || null,
+          language: lang,
+        }),
+      );
+    } catch (e) {
+      setError(aiErrorText(t, e));
+    } finally {
+      setBusy(false);
+    }
+  };
+  const o = result?.output;
+  return (
+    <section className="ai-panel compact">
+      <div className="ai-panel-head">
+        <span className="ai-chip">
+          <Icon name="spark" size={14} />
+          {t('ai.chip')}
+        </span>
+        <h3>{t('rules.ai.title')}</h3>
+      </div>
+      <textarea rows={3} value={text} onChange={(e) => setText(e.target.value)} placeholder={t('rules.ai.placeholder')} maxLength={2000} />
+      <div className="row">
+        <button className="btn small primary" disabled={busy || text.trim().length < 10 || !available} onClick={run}>
+          <Icon name="spark" size={14} /> {busy ? t('ai.working') : t('rules.ai.action')}
+        </button>
+        {!available && status.data && <span className="subtle">{t('ai.unavailableShort')}</span>}
+      </div>
+      {error && <div className="error-box">{error}</div>}
+      {o && result && (
+        <div className="stack" style={{ gap: 6 }}>
+          <strong>{pick(o.name_en, o.name_ar)}</strong>
+          <span className="subtle">{pick(o.expected_en, o.expected_ar)}</span>
+          {o.conditions ? (
+            <ConditionSentence definition={o.conditions} catalogue={catalogue} />
+          ) : (
+            <div className="callout info">{t('rules.ai.conditionsRejected')}</div>
+          )}
+          {(o.rationale_en || o.rationale_ar) && <p className="subtle">{pick(o.rationale_en, o.rationale_ar)}</p>}
+          <AiMetaLine meta={result.meta} />
+          <button className="btn small" onClick={() => onApply(o)}>
+            {t('rules.ai.apply')}
+          </button>
+          <p className="ai-disclaimer">{t('ai.disclaimer')}</p>
+        </div>
+      )}
+    </section>
+  );
+}
+
 function RuleEditor({
   initial,
   catalogue,
@@ -863,6 +957,27 @@ function RuleEditor({
             </Card>
           </div>
           <div className="stack" style={{ gap: 12 }}>
+            <RuleAiAssistant
+              category={draft.category}
+              policyId={draft.policy_version_id}
+              catalogue={catalogue}
+              onApply={(o) =>
+                setDraft((d) => ({
+                  ...d,
+                  name: o.name_en || d.name,
+                  name_ar: o.name_ar || d.name_ar,
+                  description: o.risk_en || d.description,
+                  description_ar: o.risk_ar || d.description_ar,
+                  expected_action: o.expected_en || d.expected_action,
+                  expected_action_ar: o.expected_ar || d.expected_action_ar,
+                  observed_action: o.observed_en || d.observed_action,
+                  observed_action_ar: o.observed_ar || d.observed_action_ar,
+                  severity: o.severity || d.severity,
+                  kind: o.kind || d.kind,
+                  conditions: o.conditions ?? d.conditions,
+                }))
+              }
+            />
             <Card title={t('rules.editor.impact')} subtitle={t('rules.editor.impactSub')}>
               {previewErr !== null && <div className="error-box">{errorText(previewErr, t)}</div>}
               {preview ? <BacktestView result={preview} catalogue={catalogue} definition={draft.conditions} compact /> : <Empty>{t('rules.editor.impactEmpty')}</Empty>}
@@ -1081,6 +1196,17 @@ function RuleDetail({
         </div>
       </Card>
       {rule.conditions && <SavedBacktest rule={rule} catalogue={catalogue} />}
+      {rule.conditions && (
+        <AiPanel
+          key={rule.id}
+          feature="policy_writing"
+          title={t('rules.ai.explainTitle')}
+          intro={t('rules.ai.explainIntro')}
+          endpoint={`/api/ai/rules/${rule.id}/explain-backtest`}
+          body={{ days: 90 }}
+          keys={['headline', 'explanation', 'recommendation', 'caveats']}
+        />
+      )}
     </div>
   );
 }
@@ -1104,6 +1230,7 @@ function PolicyEditor({ initial, onClose, onSaved }: { initial: PolicyDraft; onC
   const [busy, setBusy] = useState(false);
   const isNew = !d.id && !d.from_policy_id;
   const set = <K extends keyof PolicyDraft>(k: K, v: PolicyDraft[K]) => setD((x) => ({ ...x, [k]: v }));
+  const [notes, setNotes] = useState('');
   const save = async (submit: boolean) => {
     setBusy(true);
     setErr(null);
@@ -1134,6 +1261,63 @@ function PolicyEditor({ initial, onClose, onSaved }: { initial: PolicyDraft; onC
           {d.id ? t('rules.pol.editTitle', { item: d.policy_code }) : d.from_policy_id ? t('rules.pol.versionTitle', { item: d.policy_code }) : t('rules.pol.newTitle')}
         </h2>
         <p className="subtle">{t('rules.pol.intro')}</p>
+        <div className="stack" style={{ gap: 6, marginBottom: 12 }}>
+          <Field label={t('rules.pol.aiNotes')} help={t('rules.pol.aiNotesHelp')}>
+            <textarea rows={3} value={notes} onChange={(e) => setNotes(e.target.value)} maxLength={3000} />
+          </Field>
+          <AiPanel<{
+            title_en: string;
+            title_ar: string;
+            statement_en: string;
+            statement_ar: string;
+            key_requirements_en?: string[];
+            key_requirements_ar?: string[];
+            rationale_en: string;
+            rationale_ar: string;
+          }>
+            compact
+            disabled={notes.trim().length < 10 && `${d.title} ${d.summary}`.trim().length < 10}
+            feature="policy_writing"
+            title={t('rules.pol.aiTitle')}
+            endpoint="/api/ai/policy-draft"
+            actionLabel={t('rules.pol.aiAction')}
+            body={{ notes: notes.length >= 10 ? notes : `${d.title} ${d.summary}`.trim(), policy_code: d.policy_code || null, current_title: d.title || null, current_summary: d.summary || null }}
+            render={(r) => {
+              const o = r.output;
+              const join = (statement: string, items?: string[]) => [statement, ...(items ?? []).map((i) => `• ${i}`)].join('\n');
+              return (
+                <div className="stack" style={{ gap: 6 }}>
+                  <div className="grid grid-2">
+                    <div>
+                      <strong>{o.title_en}</strong>
+                      <p style={{ whiteSpace: 'pre-line' }}>{join(o.statement_en, o.key_requirements_en)}</p>
+                      <p className="subtle">{o.rationale_en}</p>
+                    </div>
+                    <div dir="rtl" lang="ar">
+                      <strong>{o.title_ar}</strong>
+                      <p style={{ whiteSpace: 'pre-line' }}>{join(o.statement_ar, o.key_requirements_ar)}</p>
+                      <p className="subtle">{o.rationale_ar}</p>
+                    </div>
+                  </div>
+                  <button
+                    className="btn small"
+                    onClick={() =>
+                      setD((x) => ({
+                        ...x,
+                        title: o.title_en,
+                        title_ar: o.title_ar,
+                        summary: join(o.statement_en, o.key_requirements_en),
+                        summary_ar: join(o.statement_ar, o.key_requirements_ar),
+                      }))
+                    }
+                  >
+                    {t('rules.ai.apply')}
+                  </button>
+                </div>
+              );
+            }}
+          />
+        </div>
         <div className="grid grid-2">
           {isNew && (
             <Field label={t('rules.pol.code')} help={t('rules.pol.codeHelp')}>

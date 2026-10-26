@@ -19,12 +19,21 @@ from sqlalchemy.orm import Session
 
 from app.db import utcnow
 from app.models import Finding, ServiceCase
-from app.pipeline.catalogue import CASE_TYPES, FIELDS, OPERATORS, fields_for
+from app.pipeline.catalogue import CASE_TYPES, FIELDS, OPERATORS, WORKPLACE_TYPES, fields_for
 from app.services.rbac import Scope
 
 MAX_CONDITIONS = 12
 CONFIRMED = {"CONFIRMED", "AMENDED"}
 REVIEWED = {"CONFIRMED", "AMENDED", "DISMISSED"}
+
+
+def all_types() -> list[str]:
+    """Rule categories: customer-service case types and workplace-policy record types."""
+    return [*CASE_TYPES, *WORKPLACE_TYPES]
+
+
+def is_workplace(case_type: str) -> bool:
+    return case_type in WORKPLACE_TYPES
 
 
 class RuleError(ValueError):
@@ -42,7 +51,7 @@ def _option_values(field: dict) -> set[str]:
 def validate(case_type: str, definition) -> dict:
     """Return a normalised copy of ``definition`` or raise RuleError."""
     errors: dict[str, str] = {}
-    if case_type not in CASE_TYPES:
+    if case_type not in all_types():
         raise RuleError({"category": "unknown_case_type"})
     if not isinstance(definition, dict):
         raise RuleError({"conditions": "invalid"})
@@ -165,6 +174,33 @@ def _projection(daily_rate: float, days: int, confirm_rate: float | None) -> dic
     }
 
 
+def _history(db: Session, case_type: str, since: datetime) -> tuple[list, dict[str, set[str]]]:
+    """(rows of (id, occurred_at, facts, org_unit_id, employee_id), finding statuses by row id)."""
+    if is_workplace(case_type):
+        from app.services import workplace  # workplace builds on this module
+
+        return workplace.history(db, case_type, since)
+    rows = db.execute(
+        select(
+            ServiceCase.id,
+            ServiceCase.occurred_at,
+            ServiceCase.attributes,
+            ServiceCase.org_unit_id,
+            ServiceCase.employee_id,
+        )
+        .where(ServiceCase.case_type == case_type, ServiceCase.occurred_at >= since)
+        .order_by(ServiceCase.occurred_at)
+    ).all()
+    statuses: dict[str, set[str]] = {}
+    for case_id, status in db.execute(
+        select(Finding.case_id, Finding.status)
+        .join(ServiceCase, ServiceCase.id == Finding.case_id)
+        .where(ServiceCase.case_type == case_type, ServiceCase.occurred_at >= since)
+    ):
+        statuses.setdefault(case_id, set()).add(status)
+    return rows, statuses
+
+
 def backtest(
     db: Session,
     case_type: str,
@@ -184,24 +220,7 @@ def backtest(
     """
     now = now or utcnow()
     since = now - timedelta(days=days)
-    rows = db.execute(
-        select(
-            ServiceCase.id,
-            ServiceCase.occurred_at,
-            ServiceCase.attributes,
-            ServiceCase.org_unit_id,
-            ServiceCase.employee_id,
-        )
-        .where(ServiceCase.case_type == case_type, ServiceCase.occurred_at >= since)
-        .order_by(ServiceCase.occurred_at)
-    ).all()
-    statuses: dict[str, set[str]] = {}
-    for case_id, status in db.execute(
-        select(Finding.case_id, Finding.status)
-        .join(ServiceCase, ServiceCase.id == Finding.case_id)
-        .where(ServiceCase.case_type == case_type, ServiceCase.occurred_at >= since)
-    ):
-        statuses.setdefault(case_id, set()).add(status)
+    rows, statuses = _history(db, case_type, since)
 
     total = len(rows)
     evaluated = 0

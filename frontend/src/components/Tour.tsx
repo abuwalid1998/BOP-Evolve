@@ -49,10 +49,14 @@ const STEPS: StepDef[] = [
   { id: 'reportGaps', permissions: ['workforce.view'], route: (t) => (t.employeeId ? `/workforce/${t.employeeId}` : null), target: 'report-gaps' },
   { id: 'reportOutlook', permissions: ['workforce.view'], route: (t) => (t.employeeId ? `/workforce/${t.employeeId}` : null), target: 'report-outlook' },
   { id: 'reportPrint', permissions: ['workforce.view'], route: (t) => (t.employeeId ? `/workforce/${t.employeeId}` : null), target: 'report-print' },
+  { id: 'workplace', permissions: ['workplace.view'], route: '/workplace', target: 'wp-kpis' },
+  { id: 'workplaceAi', permissions: ['workplace.review'], route: '/workplace', target: 'wp-ai' },
+  { id: 'onboarding', permissions: ['onboarding.manage'], route: '/onboarding', target: 'ob-plan' },
   { id: 'insights', permissions: ['insights.view'], route: '/insights', target: 'insights-table' },
   { id: 'planning', permissions: ['simulations.run'], route: '/scenarios', target: 'scenarios-form' },
   { id: 'rules', permissions: ['rules.view'], route: '/rules', target: 'rules-detail' },
   { id: 'reports', permissions: ['reports.view', 'reports.ops'], route: '/reports', target: 'reports-list' },
+  { id: 'journey', route: '/welcome', target: 'welcome-steps' },
   { id: 'finish', target: 'tour-button' },
 ];
 
@@ -348,6 +352,11 @@ export function TourProvider({ children }: { children: ReactNode }) {
 
   const finish = useCallback(() => {
     setSession(null);
+    // Taking the tour is one of the welcome-journey steps.
+    api
+      .post('/api/onboarding/me/tour')
+      .then(() => window.dispatchEvent(new Event('bop-evolve:tour-finished')))
+      .catch(() => undefined);
     if (user) {
       try {
         localStorage.setItem(DONE_KEY + user.username, '1');

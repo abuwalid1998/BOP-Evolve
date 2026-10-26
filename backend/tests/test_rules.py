@@ -104,7 +104,7 @@ def test_everyone_can_read_rules_but_only_authors_can_draft(client, login, db):
     listed = client.get("/api/rules", headers=login("employee.demo"))
     assert listed.status_code == 200
     active = [r for r in listed.json() if r["status"] == "active"]
-    assert len(active) == 7 and all(r["actions"] == [] for r in active)
+    assert len(active) == 13 and all(r["actions"] == [] for r in active)  # 7 service + 6 workplace
     assert client.get("/api/rules/catalogue", headers=login("analyst")).status_code == 200
     body = _rule_body(db, {"rule_code": "TEST_FORBIDDEN"}, CASH)
     assert client.post("/api/rules", json=body, headers=login("analyst")).status_code == 403

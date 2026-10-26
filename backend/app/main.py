@@ -5,7 +5,22 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
 
-from app.api import admin, auth, cases, config, dashboard, hr, insights, learning, ops, reports, rules
+from app.api import (
+    admin,
+    ai,
+    auth,
+    cases,
+    config,
+    dashboard,
+    hr,
+    insights,
+    learning,
+    onboarding,
+    ops,
+    reports,
+    rules,
+    workplace,
+)
 from app.config import get_settings
 from app.db import SessionLocal, utcnow
 
@@ -27,7 +42,7 @@ app.add_middleware(
     allow_credentials=False,
     allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allow_headers=["Authorization", "Content-Type", "X-Request-ID"],
-    expose_headers=["X-Request-ID", "Content-Disposition"],
+    expose_headers=["X-Request-ID", "Content-Disposition", "X-Codes-Issued"],
 )
 
 
@@ -48,7 +63,22 @@ async def request_context(request: Request, call_next):
     return response
 
 
-for module in (auth, dashboard, cases, learning, insights, hr, ops, reports, admin, config, rules):
+for module in (
+    auth,
+    dashboard,
+    cases,
+    learning,
+    insights,
+    hr,
+    ops,
+    reports,
+    admin,
+    config,
+    rules,
+    ai,
+    workplace,
+    onboarding,
+):
     app.include_router(module.router)
 app.include_router(config.public_router)
 

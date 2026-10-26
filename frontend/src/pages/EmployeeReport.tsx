@@ -4,6 +4,8 @@ import { Bar as RBar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tool
 import { api } from '../api/client';
 import type { UnitRef } from '../api/types';
 import logo from '../assets/logo.png';
+import { useAuth } from '../auth/AuthContext';
+import { AiPanel } from '../components/AiPanel';
 import { GenBadge, GenerationTrack } from '../components/GenerationTrack';
 import { Icon } from '../components/Icon';
 import { PageBrief } from '../components/PageBrief';
@@ -11,6 +13,7 @@ import { Badge, Card, Empty, ErrorBox, Kpi, Loading, StatusBadge } from '../comp
 import { useApi } from '../hooks/useApi';
 import { useI18n, type MessageKey } from '../i18n';
 import { OutlookBadge, type EmployeeSummary, type ModelInfo, type OutlookItem } from './Workforce';
+import type { WorkplaceKpis } from './Workplace';
 
 interface Person {
   id: string;
@@ -74,6 +77,28 @@ function useWho() {
 
 function driverText(t: (k: MessageKey, v?: Record<string, string | number>) => string, d: OutlookItem['drivers'][number]) {
   return t(`driver.${d.code}` as MessageKey, { n: d.n ?? 0, ratio: d.ratio ?? 1 });
+}
+
+/** Attendance, breaks and dress code for the last 90 days (only shown to people who may see it). */
+function ReportWorkplace({ employeeId }: { employeeId: string }) {
+  const { t, fmtNumber, fmtPercent } = useI18n();
+  const { can } = useAuth();
+  const { data } = useApi<{ kpis: WorkplaceKpis }>(can('workplace.view') ? `/api/workplace/employees/${employeeId}?days=90` : null);
+  if (!data) return null;
+  const k = data.kpis;
+  return (
+    <Card title={t('emp.wp.title')} subtitle={t('emp.wp.subtitle')}>
+      <div className="grid grid-4 no-break" data-tour="report-workplace">
+        <Kpi label={t('wp.k.index')} value={fmtNumber(k.adherence_index, 1)} foot={t('wp.k.indexFoot')} />
+        <Kpi label={t('wp.k.punctuality')} value={fmtPercent(k.punctuality_rate, 1)} foot={t('wp.k.punctualityFoot', { n: fmtNumber(k.late_arrivals), avg: fmtNumber(k.avg_minutes_late_when_late, 0) })} />
+        <Kpi label={t('wp.k.breaks')} value={fmtPercent(k.break_compliance_rate, 1)} foot={t('wp.k.breaksFoot', { avg: fmtNumber(k.avg_break_minutes, 0), n: fmtNumber(k.break_overruns) })} />
+        <Kpi label={t('wp.k.dress')} value={fmtPercent(k.dress_compliance_rate, 0)} foot={t('emp.wp.exceptions', { c: fmtNumber(k.exceptions.confirmed), e: fmtNumber(k.exceptions.excused), p: fmtNumber(k.exceptions.awaiting_decision) })} />
+      </div>
+      <p className="subtle no-print" style={{ marginBottom: 0 }}>
+        <Link to={`/workplace/employees/${employeeId}`}>{t('emp.wp.open')}</Link>
+      </p>
+    </Card>
+  );
 }
 
 export default function EmployeeReportPage() {
@@ -390,6 +415,19 @@ export default function EmployeeReportPage() {
               </table>
             </div>
           </Card>
+        </div>
+
+        <ReportWorkplace employeeId={employee.id} />
+
+        <div className="no-break">
+          <AiPanel
+            feature="employee_summary"
+            title={t('emp.ai.title')}
+            intro={t('emp.ai.intro')}
+            endpoint={`/api/ai/employees/${employee.id}/summary`}
+            keys={['headline', 'strengths', 'focus_areas', 'development_plan', 'conversation_opener', 'caution']}
+            tour="report-ai"
+          />
         </div>
 
         <Card title={t('emp.model.title')}>

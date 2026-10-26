@@ -5,6 +5,8 @@ Run: ``python -m app.seed.upgrade`` (the container entrypoint runs it after migr
 - Adds roles introduced since the database was seeded (Policy Owner, Chief HR Officer),
   grants the demo policy-owner account its role if it has none, and creates the demo
   Chief HR Officer account (``hr.chief``) and the employee repeat-risk model entry.
+- Adds the workplace policies (HR-01..03) and rules, simulated time-clock history for the demo
+  employees, and the generative-assistant model entry.
 - Back-fills the procedural facts that the rules engine evaluates on synthetic cases
   seeded before the engine existed, and records which conditions matched on their findings.
 
@@ -20,7 +22,8 @@ from app.config import get_settings
 from app.db import SessionLocal, new_id, utcnow
 from app.models import Finding, MistakeRule, ModelRegistry, Role, ServiceCase, User, UserRole
 from app.pipeline.catalogue import generate_attributes
-from app.services import rules_engine
+from app.seed import workplace_seed
+from app.services import ai, rules_engine
 from app.services.rbac import ROLE_CATALOGUE
 from app.services.security import hash_password
 from app.services.workforce import MODEL_NAME
@@ -75,6 +78,20 @@ def ensure_roles(db: Session) -> list[str]:
             )
         )
         added.append("model:repeat-risk")
+    if db.scalar(select(ModelRegistry.id).where(ModelRegistry.name == ai.REGISTRY_NAME)) is None:
+        db.add(
+            ModelRegistry(
+                id=new_id("MDL"),
+                name=ai.REGISTRY_NAME,
+                version="1.0",
+                purpose=ai.REGISTRY_PURPOSE,
+                status="MONITORING",
+                owner="Data & AI (demo)",
+                limitations=ai.REGISTRY_LIMITATIONS,
+                approved_at=utcnow(),
+            )
+        )
+        added.append("model:generative-assistant")
     db.flush()
     return added
 
@@ -149,6 +166,7 @@ def main() -> None:
         roles = ensure_roles(db)
         cases = backfill_attributes(db)
         findings = backfill_matched_conditions(db)
+        roles += workplace_seed.ensure_for_existing(db)
         db.commit()
     print(
         f"Upgrade complete: roles/grants added {roles or 'none'}, case facts back-filled {cases}, findings {findings}."

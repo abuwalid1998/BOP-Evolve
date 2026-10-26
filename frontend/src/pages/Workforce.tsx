@@ -122,6 +122,8 @@ export default function WorkforcePage() {
   const unitId = params.get('unit') ?? '';
   const [q, setQ] = useState('');
   const [sort, setSort] = useState<Sort>('outlook');
+  // A bank-wide view can hold thousands of people: render the first rows and let the person ask for more.
+  const [limit, setLimit] = useState(150);
   const { data, error, loading, reload } = useApi<WorkforceView>(`/api/hr/workforce${qs({ unit_id: unitId })}`);
 
   const rows = useMemo(() => {
@@ -267,7 +269,7 @@ export default function WorkforcePage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {rows.map((r) => (
+                    {rows.slice(0, limit).map((r) => (
                       <tr key={r.id} className="clickable" onClick={() => navigate(`/workforce/${r.id}`)}>
                         <td>
                           <Link to={`/workforce/${r.id}`} className="mono" onClick={(e) => e.stopPropagation()}>
@@ -313,6 +315,11 @@ export default function WorkforcePage() {
                   </tbody>
                 </table>
               </div>
+            )}
+            {rows.length > limit && (
+              <button className="btn small ghost" onClick={() => setLimit(limit + 300)}>
+                {t('wf.showMore', { shown: fmtNumber(limit), total: fmtNumber(rows.length) })}
+              </button>
             )}
             <p className="subtle wf-model-note">
               <Icon name="info" size={14} />{' '}

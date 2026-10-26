@@ -54,6 +54,83 @@ function DesktopServerSettings() {
   );
 }
 
+function ActivateForm({ onBack }: { onBack: () => void }) {
+  const { activate } = useAuth();
+  const { t } = useI18n();
+  const [username, setUsername] = useState('');
+  const [code, setCode] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirm, setConfirm] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  const submit = async (event: FormEvent) => {
+    event.preventDefault();
+    if (password !== confirm) {
+      setError(t('activate.mismatch'));
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    try {
+      await activate(username.trim(), code.trim(), password);
+    } catch (err) {
+      const code = err instanceof ApiError ? (err.detail as { code?: string } | undefined)?.code : undefined;
+      setError(
+        err instanceof ApiError && err.status === 0
+          ? t('auth.serverUnreachable')
+          : code === 'too_short' || code === 'needs_letters_and_digits'
+            ? t('activate.weak')
+            : code === 'expired'
+              ? t('activate.expired')
+              : t('activate.invalid'),
+      );
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <form className="login-form" onSubmit={submit}>
+      <div className="row between">
+        <h2>{t('activate.title')}</h2>
+        <LanguageToggle />
+      </div>
+      <p className="subtle">{t('activate.intro')}</p>
+      <Field label={t('activate.username')} help={t('activate.usernameHelp')}>
+        <input value={username} onChange={(e) => setUsername(e.target.value)} autoComplete="username" dir="ltr" required />
+      </Field>
+      <Field label={t('activate.code')} help={t('activate.codeHelp')}>
+        <input
+          value={code}
+          onChange={(e) => setCode(e.target.value.toUpperCase())}
+          autoComplete="one-time-code"
+          dir="ltr"
+          placeholder="XXXXX-XXXXX"
+          required
+        />
+      </Field>
+      <Field label={t('activate.password')} help={t('activate.passwordHelp')}>
+        <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="new-password" dir="ltr" required />
+      </Field>
+      <Field label={t('activate.confirm')}>
+        <input type="password" value={confirm} onChange={(e) => setConfirm(e.target.value)} autoComplete="new-password" dir="ltr" required />
+      </Field>
+      {error && (
+        <div className="error-box" role="alert">
+          {error}
+        </div>
+      )}
+      <button className="btn primary" type="submit" disabled={busy}>
+        {t('activate.submit')}
+      </button>
+      <button type="button" className="btn ghost" onClick={onBack}>
+        {t('activate.back')}
+      </button>
+    </form>
+  );
+}
+
 export default function LoginPage() {
   const { login, expired } = useAuth();
   const { t, tx, pick } = useI18n();
@@ -62,6 +139,7 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [accounts, setAccounts] = useState<DemoAccount[]>([]);
+  const [activating, setActivating] = useState(false);
 
   useEffect(() => {
     api
@@ -97,6 +175,9 @@ export default function LoginPage() {
           <p style={{ fontSize: 13 }}>{t('learning.metaphor')}</p>
         </section>
         <section className="login-panel">
+          {activating ? (
+            <ActivateForm onBack={() => setActivating(false)} />
+          ) : (
           <form className="login-form" onSubmit={submit}>
             <div className="row between">
               <h2>{t('auth.signIn')}</h2>
@@ -131,6 +212,9 @@ export default function LoginPage() {
             <button className="btn primary" type="submit" disabled={busy}>
               {t('auth.signIn')}
             </button>
+            <button type="button" className="btn ghost" onClick={() => setActivating(true)} data-tour="activate">
+              <Icon name="key" size={16} /> {t('activate.link')}
+            </button>
             <p className="subtle">{t('auth.demoHint')}</p>
             {accounts.length > 0 && (
               <div className="stack" style={{ gap: 8 }}>
@@ -153,6 +237,7 @@ export default function LoginPage() {
               </div>
             )}
           </form>
+          )}
         </section>
       </div>
     </div>

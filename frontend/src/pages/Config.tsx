@@ -831,7 +831,9 @@ function DatabaseTab({ canManage }: { canManage: boolean }) {
 }
 
 // -------------------------------------------------------------- settings tab
-function SettingsTab({ canManage }: { canManage: boolean }) {
+const SETTING_GROUPS = ['general', 'privacy', 'retention', 'learning', 'workplace', 'onboarding'] as const;
+
+function SettingsTab({ canManage, categories = SETTING_GROUPS }: { canManage: boolean; categories?: readonly string[] }) {
   const { t } = useI18n();
   const data = useApi<{ definitions: SettingDef[]; learning_method_version: string }>('/api/config/settings');
   const [draft, setDraft] = useState<Record<string, string>>({});
@@ -898,11 +900,17 @@ function SettingsTab({ canManage }: { canManage: boolean }) {
   const errorText = (e: SettingError) =>
     t(`set.error.${e.code}` as MessageKey, { min: e.min ?? '', max: e.max ?? '', total: e.total ?? '' });
   const display = (d: SettingDef, v: number | string) =>
-    d.kind === 'enum' ? (v === 'ar' ? 'العربية' : v === 'en' ? 'English' : String(v)) : String(v);
+    d.kind === 'enum'
+      ? v === 'ar'
+        ? 'العربية'
+        : v === 'en'
+          ? 'English'
+          : t(`set.choice.${v}` as MessageKey)
+      : String(v);
 
   return (
     <div className="stack">
-      {(['general', 'privacy', 'retention', 'learning'] as const).map((category) => (
+      {categories.map((category) => (
         <Card
           key={category}
           title={t(`set.category.${category}` as MessageKey)}
@@ -933,6 +941,14 @@ function SettingsTab({ canManage }: { canManage: boolean }) {
                           </option>
                         ))}
                       </select>
+                    ) : d.kind === 'str' ? (
+                      <input
+                        value={valueOf(d)}
+                        disabled={!canManage}
+                        dir="ltr"
+                        spellCheck={false}
+                        onChange={(e) => setDraft({ ...draft, [d.key]: e.target.value })}
+                      />
                     ) : (
                       <input
                         type="number"
@@ -1170,15 +1186,167 @@ function EnvironmentTab() {
   );
 }
 
+// -------------------------------------------------------------------- AI tab
+interface AiConfig {
+  enabled: boolean;
+  configured: boolean;
+  key_source: 'stored' | 'environment' | 'none';
+  key_hint: string | null;
+  model: string;
+  reasoning_effort: string;
+  provider: string;
+  base_url: string;
+  features: Record<string, boolean>;
+}
+
+function AiTab({ canManage }: { canManage: boolean }) {
+  const { t, fmtNumber } = useI18n();
+  const status = useApi<AiConfig>('/api/config/ai');
+  const usage = useApi<{ days: number; features: { feature: string; ok: number; error: number; tokens: number }[] }>('/api/config/ai/usage');
+  const [key, setKey] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [failure, setFailure] = useState<ApiError | null>(null);
+  const [test, setTest] = useState<{ ok: boolean; code?: string; latency_ms?: number; model?: string } | null>(null);
+
+  const run = async (fn: () => Promise<void>) => {
+    setBusy(true);
+    setFailure(null);
+    try {
+      await fn();
+    } catch (err) {
+      setFailure(err as ApiError);
+    } finally {
+      setBusy(false);
+    }
+  };
+  const s = status.data;
+  if (!s) return status.loading ? <Loading /> : <ErrorBox error={status.error} onRetry={status.reload} />;
+
+  return (
+    <div className="stack">
+      <Card title={t('aicfg.title')} subtitle={t('aicfg.subtitle')}>
+        <dl className="dl">
+          <dt>{t('aicfg.provider')}</dt>
+          <dd>
+            {s.provider} · <span className="mono">{s.base_url}</span>
+          </dd>
+          <dt>{t('aicfg.model')}</dt>
+          <dd className="mono">{s.model}</dd>
+          <dt>{t('aicfg.key')}</dt>
+          <dd>
+            {s.configured ? (
+              <>
+                <Badge tone="ok">{t(`aicfg.source.${s.key_source}` as MessageKey)}</Badge> <span className="mono">{s.key_hint}</span>
+              </>
+            ) : (
+              <Badge tone="warn">{t('aicfg.source.none')}</Badge>
+            )}
+          </dd>
+          <dt>{t('aicfg.state')}</dt>
+          <dd>{s.enabled ? <Badge tone="ok">{t('set.choice.on')}</Badge> : <Badge tone="neutral">{t('set.choice.off')}</Badge>}</dd>
+        </dl>
+        <div className="callout info" style={{ marginTop: 12 }}>
+          <Icon name="info" size={14} /> {t('aicfg.privacy')}
+        </div>
+        {canManage && (
+          <div className="stack" style={{ gap: 10, marginTop: 12 }}>
+            <Field label={t('aicfg.newKey')} help={t('aicfg.newKeyHelp')}>
+              <input
+                type="password"
+                value={key}
+                onChange={(e) => setKey(e.target.value.trim())}
+                autoComplete="off"
+                dir="ltr"
+                spellCheck={false}
+                placeholder="gsk_…"
+              />
+            </Field>
+            <div className="row">
+              <button
+                className="btn primary"
+                disabled={busy || key.length < 20}
+                onClick={() =>
+                  run(async () => {
+                    await api.put('/api/config/ai/key', { api_key: key });
+                    setKey('');
+                    setTest(null);
+                    status.reload();
+                  })
+                }
+              >
+                <Icon name="key" size={14} /> {t('aicfg.save')}
+              </button>
+              <button className="btn" disabled={busy || !s.configured} onClick={() => run(async () => setTest(await api.post('/api/config/ai/test')))}>
+                {t('aicfg.test')}
+              </button>
+              {s.key_source === 'stored' && (
+                <button
+                  className="btn ghost"
+                  disabled={busy}
+                  onClick={() =>
+                    run(async () => {
+                      await api.del('/api/config/ai/key');
+                      setTest(null);
+                      status.reload();
+                    })
+                  }
+                >
+                  {t('aicfg.clear')}
+                </button>
+              )}
+            </div>
+            {test &&
+              (test.ok ? (
+                <div className="callout brand">{t('aicfg.testOk', { model: test.model ?? '', ms: fmtNumber(test.latency_ms ?? 0) })}</div>
+              ) : (
+                <div className="error-box">{t(`ai.error.${test.code ?? 'provider_error'}` as MessageKey)}</div>
+              ))}
+            <ErrorBox error={failure} />
+          </div>
+        )}
+      </Card>
+      <SettingsTab canManage={canManage} categories={['ai']} />
+      <Card title={t('aicfg.usage', { days: usage.data?.days ?? 30 })}>
+        {!usage.data || usage.data.features.length === 0 ? (
+          <Empty>{t('aicfg.noUsage')}</Empty>
+        ) : (
+          <div className="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>{t('aicfg.feature')}</th>
+                  <th className="num">{t('aicfg.ok')}</th>
+                  <th className="num">{t('aicfg.errors')}</th>
+                  <th className="num">{t('aicfg.tokens')}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {usage.data.features.map((f) => (
+                  <tr key={f.feature}>
+                    <td>{t(`set.ai.feature.${f.feature}` as MessageKey)}</td>
+                    <td className="num">{fmtNumber(f.ok)}</td>
+                    <td className="num">{fmtNumber(f.error)}</td>
+                    <td className="num">{fmtNumber(f.tokens)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </Card>
+    </div>
+  );
+}
+
 // ---------------------------------------------------------------------- page
-type Tab = 'database' | 'settings' | 'pipelines' | 'environment';
+type Tab = 'database' | 'settings' | 'ai' | 'pipelines' | 'environment';
 
 export default function ConfigPage() {
   const { t } = useI18n();
   const { can } = useAuth();
   const canManage = can('config.manage');
   const [tab, setTab] = useState<Tab>('database');
-  const tabs: Tab[] = ['database', 'settings', 'pipelines', 'environment'];
+  const tabs: Tab[] = ['database', 'settings', 'ai', 'pipelines', 'environment'];
   return (
     <>
       <PageHead title={t('config.title')} subtitle={t('config.subtitle')} />
@@ -1197,6 +1365,7 @@ export default function ConfigPage() {
       </div>
       {tab === 'database' && <DatabaseTab canManage={canManage} />}
       {tab === 'settings' && <SettingsTab canManage={canManage} />}
+      {tab === 'ai' && <AiTab canManage={canManage} />}
       {tab === 'pipelines' && <PipelinesTab canManage={canManage} />}
       {tab === 'environment' && <EnvironmentTab />}
     </>
