@@ -18,6 +18,8 @@ export const NAV: NavItem[] = [
   { to: '/overview', label: 'nav.overview', icon: 'overview', permissions: ['dashboard.view'] },
   { to: '/explorer', label: 'nav.explorer', icon: 'explorer', permissions: ['cases.view'] },
   { to: '/workforce', label: 'nav.workforce', icon: 'people', permissions: ['workforce.view'] },
+  { to: '/workplace', label: 'nav.workplace', icon: 'clock', permissions: ['workplace.view'] },
+  { to: '/onboarding', label: 'nav.onboarding', icon: 'calendar', permissions: ['onboarding.manage'] },
   { to: '/learning', label: 'nav.learning', icon: 'learning', permissions: ['learning.view'] },
   { to: '/insights', label: 'nav.insights', icon: 'insights', permissions: ['insights.view'] },
   { to: '/scenarios', label: 'nav.scenarios', icon: 'scenarios', permissions: ['simulations.run'] },
@@ -27,6 +29,8 @@ export const NAV: NavItem[] = [
   { to: '/health', label: 'nav.health', icon: 'health', permissions: ['ops.view'] },
   { to: '/config', label: 'nav.config', icon: 'tune', permissions: ['config.view'] },
   { to: '/admin', label: 'nav.admin', icon: 'admin', permissions: ['admin.view', 'audit.view'] },
+  // Everyone: the welcome journey (no permission needed).
+  { to: '/welcome', label: 'nav.welcome', icon: 'flag', permissions: [] },
 ];
 
 export function DemoBanner() {
@@ -97,14 +101,20 @@ function Shell() {
             <div className="brand-tag">{t('app.tagline')}</div>
           </div>
         </div>
-        {NAV.filter((item) => can(...item.permissions)).map((item) => (
+        {NAV.filter((item) => !item.permissions.length || can(...item.permissions)).map((item) => (
           <NavLink
             key={item.to}
             to={item.to === '/learning' && isEmployee ? `/learning/${user?.employee_id}` : item.to}
             className={({ isActive }) => `nav-link${isActive ? ' active' : ''}`}
           >
             <Icon name={item.icon} />
-            {t(item.to === '/learning' && isEmployee ? 'nav.myLearning' : item.label)}
+            {t(
+              item.to === '/learning' && isEmployee
+                ? 'nav.myLearning'
+                : item.to === '/workplace' && isEmployee
+                  ? 'nav.myWorkplace'
+                  : item.label,
+            )}
           </NavLink>
         ))}
         <div className="sidebar-foot">

@@ -130,3 +130,29 @@ export function qs(params: Record<string, string | number | boolean | null | und
   const text = search.toString();
   return text ? `?${text}` : '';
 }
+
+/** POST and save the CSV the server returns (used for one-time activation codes). Returns the response headers. */
+export async function postDownload(path: string, filename: string): Promise<Headers> {
+  const token = tokenStore.get();
+  const response = await fetch(`${apiBase}${path}`, {
+    method: 'POST',
+    headers: { Accept: 'text/csv', 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+    body: '{}',
+  });
+  if (!response.ok) {
+    let detail: unknown;
+    try {
+      detail = (await response.json()).detail;
+    } catch {
+      /* non-JSON error */
+    }
+    throw new ApiError(response.status, response.statusText, detail);
+  }
+  const url = URL.createObjectURL(await response.blob());
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  link.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  return response.headers;
+}

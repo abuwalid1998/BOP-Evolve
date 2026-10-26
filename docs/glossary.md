@@ -139,3 +139,20 @@ The approved vocabulary used across BOP Evolve, in English and Arabic. The same 
 | Analyst (read-only) | محلل (اطلاع فقط) |
 | Policy Owner | مالك السياسة |
 | Chief Human Resources Officer | رئيس الموارد البشرية |
+
+## Workplace policies, onboarding and the AI assistant
+
+| English | العربية | Meaning |
+|---|---|---|
+| Workplace policies | سياسات بيئة العمل | Internal HR policies HR-01 (working hours & attendance), HR-02 (breaks), HR-03 (dress code). |
+| Exception | استثناء | A workplace rule matched a time-clock day or a dress-code check. Open → explained → excused / confirmed / dismissed. |
+| Excused | معذورة | A supervisor accepted the reason; not counted against the employee. |
+| Grace period | فترة السماح | Minutes after the shift start still counted as on time in the KPIs. |
+| Break allowance | الحد اليومي للاستراحة | Daily break minutes before an overrun is recorded. |
+| Lost hours | الساعات المهدرة | Late arrival + early leave + break overrun, per employee per month. |
+| Policy adherence index | مؤشر الالتزام بالسياسات | 0–100 blend of punctuality, attendance, breaks, punches and dress code. |
+| Roster import | استيراد كشف الموظفين | The HR staff list (CSV) that creates and updates accounts. |
+| Wave | موجة | A group of staff invited together with one-time activation codes. |
+| Activation code | رمز التفعيل | One-time, expiring code for a person's first sign-in. |
+| Welcome journey | مسار البداية | Activate, language, tour, policy acknowledgement and a 3-question check. |
+| AI assistant | المساعد الذكي | Drafts and explanations by a language model; always a draft for a person to review. |

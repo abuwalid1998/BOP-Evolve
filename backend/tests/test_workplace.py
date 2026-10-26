@@ -61,6 +61,8 @@ def test_hr_overview_kpis_drilldown_and_permissions(client, login):
     k = data["kpis"]
     assert k["employees"] > 50 and 0.5 < k["punctuality_rate"] <= 1 and 0 < k["adherence_index"] <= 100
     assert k["lost_hours_per_employee_month"] > 0 and k["dress_observations"] > 0
+    # Average lateness counts only the late days themselves (> grace), so it cannot fall below the grace.
+    assert 10 < k["avg_minutes_late_when_late"] < 60
     assert {c["unit"]["type"] for c in data["children"]} == {"department"}
     assert sum(c["kpis"]["days_worked"] for c in data["children"]) == k["days_worked"]
     assert data["weekly"] and data["weekday"] and data["by_rule"] and data["policies"]

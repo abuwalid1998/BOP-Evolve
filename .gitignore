@@ -30,3 +30,6 @@ Thumbs.db
 *.log
 .bop-backup/
 .bop-build-state.json
+
+# Local UI screenshots
+.shots/

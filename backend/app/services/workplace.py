@@ -417,6 +417,9 @@ def _attendance_sums(grace: int):
         ),
         one(and_(worked, AttendanceDay.break_overrun_minutes > 0)).label("break_over_days"),
         total(AttendanceDay.minutes_late).label("late_minutes"),
+        func.coalesce(
+            func.sum(case((and_(has_in, AttendanceDay.minutes_late > grace), AttendanceDay.minutes_late), else_=0)), 0
+        ).label("late_minutes_beyond_grace"),
         total(AttendanceDay.early_leave_minutes).label("early_minutes"),
         total(AttendanceDay.break_overrun_minutes).label("overrun_minutes"),
         total(AttendanceDay.break_minutes).label("break_minutes"),
@@ -435,6 +438,7 @@ _SUM_KEYS = (
     "missing_punch",
     "break_over_days",
     "late_minutes",
+    "late_minutes_beyond_grace",
     "early_minutes",
     "overrun_minutes",
     "break_minutes",
@@ -473,7 +477,9 @@ def _derive(s: dict, dress: tuple[int, int], employees: int, exceptions: dict) -
         "break_compliance_rate": breaks,
         "punch_completeness_rate": punches,
         "avg_break_minutes": round(s["break_minutes"] / s["worked"], 1) if s["worked"] else None,
-        "avg_minutes_late_when_late": round(s["late_minutes"] / s["late_days"], 1) if s["late_days"] else None,
+        "avg_minutes_late_when_late": round(s["late_minutes_beyond_grace"] / s["late_days"], 1)
+        if s["late_days"]
+        else None,
         "lost_minutes": lost,
         "lost_hours_per_employee_month": round(lost / s["worked"] * WORKING_DAYS_PER_MONTH / 60, 2)
         if s["worked"]

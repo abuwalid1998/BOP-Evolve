@@ -206,6 +206,22 @@ def people(
     return {"total": total, "page": page, "page_size": page_size, "items": items}
 
 
+@router.get("/units")
+def units(principal: Principal = Depends(require(MANAGE)), db: Session = Depends(get_db)):
+    """Org units for choosing a wave's scope."""
+    return [
+        {
+            "id": u.id,
+            "code": u.code,
+            "type": u.unit_type,
+            "name": u.name,
+            "name_ar": u.name_ar,
+            "parent_id": u.parent_id,
+        }
+        for u in db.scalars(select(OrgUnit).where(OrgUnit.active.is_(True)).order_by(OrgUnit.code))
+    ]
+
+
 # ---------------------------------------------------------------------- waves
 class WaveBody(BaseModel):
     name: str = Field(min_length=3, max_length=120)

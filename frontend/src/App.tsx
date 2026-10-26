@@ -19,7 +19,10 @@ import EmployeeReportPage from './pages/EmployeeReport';
 import ReportsPage from './pages/Reports';
 import RulesPage from './pages/Rules';
 import ScenariosPage from './pages/Scenarios';
+import OnboardingPage from './pages/Onboarding';
+import WelcomePage from './pages/Welcome';
 import WorkforcePage from './pages/Workforce';
+import WorkplacePage, { WorkplaceEmployeePage } from './pages/Workplace';
 
 function Guard({ permissions, children }: { permissions: string[]; children: ReactNode }) {
   const { can } = useAuth();
@@ -28,8 +31,8 @@ function Guard({ permissions, children }: { permissions: string[]; children: Rea
 
 function Home() {
   const { can } = useAuth();
-  const first = NAV.find((item) => can(...item.permissions));
-  return <Navigate to={first?.to ?? '/overview'} replace />;
+  const first = NAV.find((item) => item.permissions.length > 0 && can(...item.permissions));
+  return <Navigate to={first?.to ?? '/welcome'} replace />;
 }
 
 export default function App() {
@@ -56,6 +59,13 @@ export default function App() {
             path="workforce/:employeeId"
             element={<Guard permissions={['workforce.view']}><EmployeeReportPage /></Guard>}
           />
+          <Route path="workplace" element={<Guard permissions={['workplace.view']}><WorkplacePage /></Guard>} />
+          <Route
+            path="workplace/employees/:employeeId"
+            element={<Guard permissions={['workplace.view']}><WorkplaceEmployeePage /></Guard>}
+          />
+          <Route path="onboarding" element={<Guard permissions={['onboarding.manage']}><OnboardingPage /></Guard>} />
+          <Route path="welcome" element={<WelcomePage />} />
           <Route path="insights" element={<Guard permissions={['insights.view']}><InsightsPage /></Guard>} />
           <Route path="scenarios" element={<Guard permissions={['simulations.run']}><ScenariosPage /></Guard>} />
           <Route

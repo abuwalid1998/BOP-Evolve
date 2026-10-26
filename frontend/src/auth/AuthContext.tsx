@@ -22,6 +22,8 @@ interface AuthValue {
   ready: boolean;
   expired: boolean;
   login: (username: string, password: string) => Promise<void>;
+  /** First sign-in with the one-time code from HR; sets the person's password. */
+  activate: (username: string, code: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
   can: (...permissions: string[]) => boolean;
 }
@@ -64,6 +66,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(result.user);
   }, []);
 
+  const activate = useCallback(async (username: string, code: string, password: string) => {
+    const result = await api.post<{ access_token: string; user: CurrentUser }>('/api/auth/activate', {
+      username,
+      code,
+      password,
+    });
+    tokenStore.set(result.access_token);
+    setExpired(false);
+    setUser(result.user);
+    // Land new staff on their welcome journey.
+    window.location.hash = '#/welcome';
+  }, []);
+
   const logout = useCallback(async () => {
     try {
       await api.post('/api/auth/logout');
@@ -80,7 +95,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 
   return (
-    <AuthContext.Provider value={{ user, ready, expired, login, logout, can }}>{children}</AuthContext.Provider>
+    <AuthContext.Provider value={{ user, ready, expired, login, activate, logout, can }}>{children}</AuthContext.Provider>
   );
 }
 

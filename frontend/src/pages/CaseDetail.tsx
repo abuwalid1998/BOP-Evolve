@@ -3,6 +3,7 @@ import { Link, useParams } from 'react-router-dom';
 import { api, ApiError } from '../api/client';
 import type { CaseDetail, FindingDetail } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
+import { AiPanel } from '../components/AiPanel';
 import { PageBrief } from '../components/PageBrief';
 import { Badge, Card, ErrorBox, Field, Loading, PageHead, StatusBadge, Toast } from '../components/ui';
 import { useApi } from '../hooks/useApi';
@@ -499,6 +500,16 @@ function FindingCard({ finding, detail, onDone }: { finding: FindingDetail; deta
         </div>
 
         {detail.viewer.can_respond && <ResponseForm finding={finding} onDone={onDone} />}
+        {can('findings.review', 'actions.manage', 'workforce.view') && !detail.viewer.is_subject && (
+          <AiPanel
+            key={finding.id}
+            feature="case_assistant"
+            title={t('case.ai.title')}
+            intro={t('case.ai.intro')}
+            endpoint={`/api/ai/findings/${finding.id}/assist`}
+            keys={['summary', 'likely_root_cause', 'coaching_points', 'questions_for_employee', 'caution']}
+          />
+        )}
         {finding.can_review && !detail.viewer.is_subject && <ReviewForm finding={finding} onDone={onDone} />}
 
         <ActionsPanel

@@ -31,6 +31,9 @@ An interactive prototype of the BOP Evolve employee-learning and service-quality
 | **"Was the employee aware?"** | Three separate views: the employee's own account (before/after feedback), reviewer assessment (policy clear? evidence supports? system issue?), demonstrated learning (comparable follow-up cases). |
 | **Workflow** | Review decisions (confirm / confirm with amendment / uphold objection / dismiss), employee account & objection, corrective actions with owners, due dates and completion evidence. |
 | **Workforce Development** (Chief HR Officer) | Every employee by department, region, branch and section: development stage, confirmed findings and repeats, the latest finding, corrective actions completed and overdue, the learning-from-findings rate, a 90-day repeat-risk outlook and open knowledge gaps. Drill down from bank to section. Each employee has a printable **Employee Development Report** (findings timeline with the review decision and the action taken by the manager or supervisor, occurrence by service type, knowledge gaps, outlook with the suggested development action and the model card). Views and prints are audited. See [docs/workforce.md](docs/workforce.md). |
+| **Workplace policies** | Attendance, check-in / check-out, breaks and dress code against HR-01..HR-03, evaluated daily by the rules engine. Time KPIs (on-time check-in, breaks within allowance, lost hours per employee per month, attendance, punch completeness, dress-code compliance, a 0–100 adherence index) with drill-down from bank to section, weekly and weekday patterns, exceptions by rule and the reasons staff gave. Employees explain their exceptions; line managers excuse, confirm (with a light follow-up) or dismiss, one by one or in bulk, and record dress-code checks. See [docs/onboarding-and-workplace.md](docs/onboarding-and-workplace.md). |
+| **Staff onboarding** (HR) | Brings 3,400+ staff from C-level to officers into the system: roster CSV import validated row by row, access derived from grade and department, invitation waves with one-time activation codes (hashed, expiring), and a five-step welcome journey (activate, language, tour, policy acknowledgement, 3-question check) followed in an onboarding funnel by department and grade, with AI-drafted reminders. |
+| **AI assistant** (Groq, `openai/gpt-oss-20b`) | Drafts policy statements and control rules (validated by the rules engine), explains backtests, prepares review conversations, writes development summaries and workplace insights, and personalises onboarding, in English and Arabic. Pseudonymised inputs only; each feature can be switched off; every call is cached, logged and audited; the key lives only in `.env` or encrypted in System Configuration. See [docs/ai-assistant.md](docs/ai-assistant.md). |
 | **Guided tour** | A **Guided tour** button in the top bar walks any user through the sections they can open — 24 steps for the Chief HR Officer, from the executive overview through a real case file to the employee report — with a gliding spotlight, fading cards, Previous / Next / Finish and arrow-key navigation (mirrored in Arabic). It starts by itself on the Chief HR Officer's first sign-in. |
 | **Staff Development** | Versioned, evidence-gated development stages (G0 Baseline → G5 Sustained performance); live evaluation with indicator breakdown, coverage, gaps and warnings; immutable version history; approval of proposed versions; coaching sessions; dated timeline. |
 | **Branch & Unit Performance** | Department / region / branch / section aggregates with privacy suppression and systemic-cause share. |
@@ -47,7 +50,7 @@ Every page opens with a short brief (purpose, what you will see, what it tells y
 
 The sign-in screen has an ambient data-flow animation (raw fragments are validated, merged and condensed into answers); it honours the OS "reduce motion" setting.
 
-Architecture: [docs/architecture.md](docs/architecture.md) · How it works: [docs/how-it-works.md](docs/how-it-works.md) · Rules engine: [docs/rules-engine.md](docs/rules-engine.md) · Glossary: [docs/glossary.md](docs/glossary.md) · Workforce & outlook model: [docs/workforce.md](docs/workforce.md) · Schema: [docs/data-dictionary.md](docs/data-dictionary.md)
+Architecture: [docs/architecture.md](docs/architecture.md) · Onboarding & workplace policies: [docs/onboarding-and-workplace.md](docs/onboarding-and-workplace.md) · AI assistant: [docs/ai-assistant.md](docs/ai-assistant.md) · How it works: [docs/how-it-works.md](docs/how-it-works.md) · Rules engine: [docs/rules-engine.md](docs/rules-engine.md) · Glossary: [docs/glossary.md](docs/glossary.md) · Workforce & outlook model: [docs/workforce.md](docs/workforce.md) · Schema: [docs/data-dictionary.md](docs/data-dictionary.md)
 
 ## One-click start on Windows
 
@@ -147,7 +150,7 @@ The **Desktop installers** GitHub Actions workflow (`.github/workflows/desktop.y
 
 ## Configuration screen
 
-**System Configuration** (System Administrator; read-only for Data / AI Ops) has four tabs.
+**System Configuration** (System Administrator; read-only for Data / AI Ops) has five tabs.
 
 - **Database**
   - The current application database is always listed. Add PostgreSQL connection profiles (host, port, database, user, SSL mode, schema).
@@ -161,6 +164,7 @@ The **Desktop installers** GitHub Actions workflow (`.github/workflows/desktop.y
   - Each change is marked *Allowed* or *Blocked* based on the database account's privileges.
   - **Apply** requires the `config.manage` permission, an unchanged plan since the check, and typing the database name. It runs everything in one transaction (nothing changes if any statement fails). When the schema ends up valid it records the migration revision so automatic upgrades keep working. Every test, check and apply is audited.
 - **Application settings**: change values at runtime, see the default for each, and reset to default. Learning-method weights must add up to 1; changing the method creates a new method version so existing history stays traceable.
+- **AI assistant**: where the Groq key comes from (masked), save a key encrypted or remove it, **Test connection**, model, reasoning effort, master and per-feature switches, and 30-day usage. See [docs/ai-assistant.md](docs/ai-assistant.md).
 - **Pipelines**: schedule, freshness SLA, owner and runbook per pipeline.
 - **Environment**: read-only server settings (environment, sign-in mode, database, expected revision, encryption-key and host-allowlist status).
 
@@ -183,14 +187,16 @@ All demo accounts share the local-only password **`Evolve#Demo2026`** (configura
 | `regional.north` | Regional Manager | North Region | Region cases, learning, insights, scenarios. |
 | `branch.n01` | Branch Manager | North Branch 01 | Branch cases, reviews, actions, approvals, coaching, restricted evidence. |
 | `section.n01` | Section Manager | N01 Tellers | Section cases, reviews, actions. |
-| `lead.br-n01-tel` | Team Lead | N01 Tellers | Team cases, actions, coaching. |
-| `employee.demo` | Customer Service Employee | Own records (`E-1001`) | Own findings, respond/dispute, own actions, own learning profile. |
+| `lead.br-n01-tel` | Team Lead | N01 Tellers | Team cases, actions, coaching; decides workplace exceptions and records dress-code checks. |
+| `employee.demo` | Customer Service Employee | Own records (`E-1001`) | Own findings, respond/dispute, own actions, own learning profile, own attendance record (explain exceptions). |
 | `hr.ld` | HR / L&D | Global | Learning profiles, approvals, coaching, insights, reports, scenarios. |
 | `risk.compliance` | Risk / Compliance / Audit | Global | Cases, reviews, restricted evidence, reports, model health, audit log. |
 | `data.ops` | Data / AI / IT Ops | Global | Pipeline & model health and ops reports only — no case content. |
 | `analyst` | Analyst (read-only) | Global | Aggregated insights and reports only. |
 | `hr.chief` | Chief HR Officer | Global | Workforce development for every employee, printable employee reports, case files, staff development, insights, reports, scenarios. **Own demo password: `123`** (`HR_CHIEF_PASSWORD`). |
 | `ops.policy` | Policy Owner | Global | Drafts and approves policy versions and control rules (never their own); aggregates and reports. |
+
+**New staff** from a roster import have no password until they activate: on the sign-in screen choose **First time? Activate your account** and enter the employee number, the one-time code from the wave's CSV and a new password. Try it: as `hr.chief`, open **Staff onboarding**, download the sample roster (3,400 fictional people), import it, create a wave and launch it.
 
 A good walkthrough: sign in as `employee.demo` and respond to a pending finding → sign in as `branch.n01`, review it and agree an action → back as the employee, complete the action with an evidence reference → as `branch.n01` or `hr.ld`, open the profile and re-evaluate / approve the proposed version. Watch each step appear in the audit log as `superadmin`.
 
@@ -255,6 +261,8 @@ Copy `.env.example` to `.env` to override defaults (Compose reads it automatical
 | `CORS_ORIGINS` | `http://localhost:5173,http://localhost:8080` | Extra browser origins (`app://bop-evolve` for the desktop app is always allowed). |
 | `PRIVACY_MIN_GROUP_EMPLOYEES` / `PRIVACY_MIN_GROUP_CASES` | `3` / `10` | Default insight suppression thresholds (adjustable at runtime on the Configuration screen). |
 | `CONFIG_SECRET_KEY` / `DB_CONNECTION_ALLOWED_HOSTS` | empty | See [Configuration screen](#configuration-screen). |
+| `GROQ_API_KEY` | empty | Groq key for the AI assistant. Put it in `.env` only (never commit it), or store it encrypted from System Configuration › AI assistant. The backend must reach `api.groq.com`. |
+| `GROQ_MODEL` / `GROQ_BASE_URL` / `AI_TIMEOUT_SECONDS` | `openai/gpt-oss-20b` / Groq / `45` | Model, OpenAI-compatible endpoint and timeout. |
 
 **Behind a TLS-inspecting corporate proxy?** If image builds fail with `CERTIFICATE_VERIFY_FAILED`, copy your proxy's CA bundle (PEM) to `.certs/extra-ca.pem` (git-ignored) and build with:
 
