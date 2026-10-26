@@ -57,12 +57,13 @@ Download or clone the repository, then **double-click `bop-evolve.bat`** (or run
 2. **Installs what is missing**, after asking: WSL 2 and Docker Desktop via `winget` (approve the administrator prompts), then starts Docker Desktop and waits for it. It also switches Docker to Linux containers if needed.
 3. **Prepares the environment:** creates `.env` from `.env.example` with a random local session secret, fixes Windows line endings in the container entrypoint, and uses `.certs\extra-ca.pem` automatically if you work behind a TLS-inspecting proxy.
 4. **Picks free ports automatically.** The web UI prefers 8080 and the API 8000. If a port is busy (another app, or a port Windows reserves for Hyper-V/WSL), the next free one is chosen and saved as `WEB_PORT` / `API_PORT` in `.env`, so the address stays the same next time. If BOP Evolve is already running, its current ports are kept.
-5. **Builds and starts** the containers, waits until every service is healthy, prints the URLs and demo sign-in, and opens the browser.
+5. **Builds only what changed and starts** the containers, waits until every service is healthy, prints the URLs and demo sign-in, and opens the browser. Each image is rebuilt only when its source files change (tracked in `.bop-build-state.json`), and inside a rebuild Docker reinstalls Python or npm packages only when `requirements.txt` or `package-lock.json` changed.
 
 | Command | What it does |
 |---|---|
 | `bop-evolve.bat` | Everything above (same as `start`). |
 | `bop-evolve.bat desktop` | Same, then installs Node.js LTS if needed and opens the Electron desktop app, already pointed at the detected API port. |
+| `bop-evolve.bat update` | Gets the latest `main` from GitHub, rebuilds only the images whose source changed and restarts. Demo data and `.env` are kept. See [Updating](#updating-to-the-latest-version). |
 | `bop-evolve.bat check` | Only runs the system and Docker checks. Installs nothing. |
 | `bop-evolve.bat status` | Shows container status and the URLs in use. |
 | `bop-evolve.bat logs` | Follows the container logs (Ctrl+C to stop). |
@@ -70,9 +71,20 @@ Download or clone the repository, then **double-click `bop-evolve.bat`** (or run
 | `bop-evolve.bat reset` | Deletes the demo data and starts fresh (asks first). |
 | `bop-evolve.bat help` | Shows all commands and options. |
 
-Options: `--yes` answers install/reset questions automatically, `--no-browser` skips opening the browser, `--no-pause` closes the window without waiting for a key press. Each run is logged to `bop-evolve-launcher.log`.
+Options: `--yes` answers install/reset questions automatically, `--no-browser` skips opening the browser, `--no-pause` closes the window without waiting for a key press, `--rebuild` rebuilds every image regardless, `--branch=NAME` updates from another branch. Each run is logged to `bop-evolve-launcher.log`.
 
 **First-time Docker install:** Windows may ask you to restart after WSL 2 / Docker Desktop are installed, and Docker Desktop asks you to accept its terms on first start. Do that, then run `bop-evolve.bat` again; it continues where it left off. On locked-down PCs where PowerShell runs in Constrained Language Mode, the launcher stops with an explanation; ask IT for an exception or use the manual steps below.
+
+### Updating to the latest version
+
+Run **`bop-evolve.bat update`** in the project folder. It:
+
+1. Makes sure Git is installed (installs Git for Windows with winget after asking). The repository is private: the first time, a GitHub sign-in window opens; sign in with an account that has access.
+2. **First run in a folder downloaded as a ZIP:** connects the folder to GitHub in place. Files that are replaced, or that no longer exist in the new version, are moved to `.bop-backup\<date-time>\` first; `.env`, `.certs` and the demo data are kept.
+3. **Later runs:** downloads only the new commits and fast-forwards to `main`, then lists what changed. If you edited project files, it offers to set them aside with `git stash` (restore with `git stash pop`); nothing is overwritten silently.
+4. Rebuilds only the images whose source changed (an update that touches only the backend rebuilds only the backend), restarts the containers that need it, and applies database migrations automatically. With nothing new, it finishes in seconds.
+
+**Getting the update command the first time:** copies of BOP Evolve from before this command existed have an older `bop-evolve.bat`. Replace it once with the current one: on GitHub, open `bop-evolve.bat` on the `main` branch and choose *Download raw file*, save it over the old file, then run `bop-evolve.bat update`. (Alternatively download the repository ZIP once more and copy `bop-evolve.bat` from it.)
 
 ## Quick start (Docker)
 
