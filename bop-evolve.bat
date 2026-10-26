@@ -7,13 +7,10 @@ title BOP Evolve launcher
 set "BOP_SELF=%~f0"
 set "BOP_ROOT=%~dp0"
 set "BOP_ARGS=%*"
-where powershell.exe >nul 2>&1 || goto :no_powershell
-powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -Command "$global:BopExitCode = 1; if ($ExecutionContext.SessionState.LanguageMode -ne 'FullLanguage') { Write-Host ('[FAIL] PowerShell runs in ' + $ExecutionContext.SessionState.LanguageMode + ' mode (IT policy). The launcher needs FullLanguage mode: ask IT for an exception, or start BOP Evolve manually with: docker compose up -d --build') -ForegroundColor Red; if ($env:BOP_ARGS -notmatch '--no-pause') { $null = Read-Host 'Press Enter to close' }; exit 1 }; & ([ScriptBlock]::Create((Get-Content -LiteralPath $env:BOP_SELF -Raw))); exit $global:BopExitCode"
-exit /b %ERRORLEVEL%
-:no_powershell
-echo Windows PowerShell was not found. It is part of Windows 10 and 11; please repair Windows PowerShell.
-pause
-exit /b 1
+rem PowerShell and exit are on one line: cmd parses the whole line before running it, so it never
+rem reads this file again after "update" replaces it.
+where powershell.exe >nul 2>&1 || (echo [FAIL] Windows PowerShell was not found. It is part of Windows 10 and 11: please repair Windows PowerShell. & pause & exit /b 1)
+powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -Command "$global:BopExitCode = 1; if ($ExecutionContext.SessionState.LanguageMode -ne 'FullLanguage') { Write-Host ('[FAIL] PowerShell runs in ' + $ExecutionContext.SessionState.LanguageMode + ' mode (IT policy). The launcher needs FullLanguage mode: ask IT for an exception, or start BOP Evolve manually with: docker compose up -d --build') -ForegroundColor Red; if ($env:BOP_ARGS -notmatch '--no-pause') { $null = Read-Host 'Press Enter to close' }; exit 1 }; & ([ScriptBlock]::Create((Get-Content -LiteralPath $env:BOP_SELF -Raw))); exit $global:BopExitCode" & exit /b
 #>
 
 # =============================================================================
@@ -31,8 +28,13 @@ exit /b 1
 #       with winget, after asking. Starts Docker Desktop and waits for it.
 #    3. Prepares .env (from .env.example, with a random local session secret).
 #    4. Detects free ports for the web UI and the API and saves them in .env.
-#    5. Builds and starts the containers, waits until they are healthy and
-#       opens the browser (or the desktop app).
+#    5. Builds the images whose source changed (and only those), starts the
+#       containers, waits until they are healthy and opens the browser (or
+#       the desktop app).
+#
+#  "update" first brings this folder up to date with the GitHub main branch
+#  (turning a ZIP download into a Git checkout the first time), then does the
+#  same as "start". Demo data and .env are kept.
 # =============================================================================
 
 $ErrorActionPreference = 'Stop'
@@ -50,6 +52,10 @@ $EnvPath = Join-Path $Root '.env'
 $CaCertPath = Join-Path $Root '.certs/extra-ca.pem'
 $DefaultWebPort = 8080
 $DefaultApiPort = 8000
+$BuildStatePath = Join-Path $Root '.bop-build-state.json'
+$BackupRoot = Join-Path $Root '.bop-backup'
+$RepoUrl = 'https://github.com/abuwalid1998/BOP-Evolve.git'
+if ($env:BOP_REPO_URL) { $RepoUrl = $env:BOP_REPO_URL }
 
 $script:WebPort = $DefaultWebPort
 $script:ApiPort = $DefaultApiPort
@@ -62,6 +68,8 @@ $Command = 'start'
 $AssumeYes = $false
 $NoBrowser = $false
 $NoPause = ($env:BOP_NO_PAUSE -eq '1')
+$ForceBuild = $false
+$Branch = 'main'
 $argList = @()
 if ($env:BOP_ARGS) { $argList = @($env:BOP_ARGS -split '\s+' | Where-Object { $_ }) }
 $unknownArgs = @()
@@ -71,6 +79,9 @@ foreach ($a in $argList) {
         '^--no-browser$' { $NoBrowser = $true; continue }
         '^--no-pause$' { $NoPause = $true; continue }
         '^(-h|--help|/\?|help)$' { $Command = 'help'; continue }
+        '^--rebuild$' { $ForceBuild = $true; continue }
+        '^--branch=(.+)$' { $Branch = $matches[1]; continue }
+        '^(update|pull)$' { $Command = 'update'; continue }
         '^(start|desktop|stop|status|logs|reset|check)$' { $Command = $matches[0]; continue }
         default { $unknownArgs += $a }
     }
@@ -102,6 +113,11 @@ Commands
              ports, build and start BOP Evolve, open the browser. (default)
   desktop    Same as start, then install Node.js if needed and open the
              Electron desktop app instead of the browser.
+  update     Get the latest version from GitHub (main branch) and restart.
+             Only changed files are downloaded and only changed images are
+             rebuilt. Demo data and .env are kept. The first time, a folder
+             downloaded as a ZIP is turned into a Git checkout (Git is
+             installed if needed; sign in to GitHub when the browser asks).
   check      Only run the system and Docker checks. Installs nothing.
   status     Show container status and the URLs in use.
   logs       Follow the container logs (Ctrl+C to stop following).
@@ -113,6 +129,12 @@ Options
   --yes, -y      Answer "yes" to install / reset questions (unattended use).
   --no-browser   Do not open the browser after starting.
   --no-pause     Do not wait for a key press before closing the window.
+  --rebuild      Rebuild every image even if its source has not changed.
+  --branch=NAME  Branch to update from (default: main).
+
+Images are rebuilt only when their source changes (tracked in
+.bop-build-state.json); dependencies are reinstalled only when
+requirements.txt or package-lock.json change.
 
 Ports: the web UI prefers 8080 and the API 8000. If a port is busy, the next
 free one is chosen automatically and saved as WEB_PORT / API_PORT in .env, so
@@ -400,6 +422,85 @@ function Invoke-Compose([string[]]$Arguments) {
     }
 }
 
+# ------------------------------------------------------- incremental builds
+# Each image is rebuilt only when the files it is built from change. A content hash of
+# those files is kept in .bop-build-state.json after every successful build.
+$ImagePlan = @(
+    @{ Name = 'backend'; Dir = 'backend'; Image = 'bop-evolve/backend:local'; Service = 'backend' },
+    @{ Name = 'frontend'; Dir = 'frontend'; Image = 'bop-evolve/frontend:local'; Service = 'frontend' }
+)
+
+function Read-BuildState {
+    $state = @{}
+    if (Test-Path $BuildStatePath) {
+        try {
+            $json = [IO.File]::ReadAllText($BuildStatePath) | ConvertFrom-Json
+            foreach ($prop in $json.PSObject.Properties) { $state[$prop.Name] = [string]$prop.Value }
+        } catch {
+            Write-Warn 'Ignoring an unreadable .bop-build-state.json (everything will be checked again).'
+        }
+    }
+    return $state
+}
+
+function Save-BuildState($State) {
+    $ordered = New-Object 'System.Collections.Specialized.OrderedDictionary'
+    foreach ($key in ($State.Keys | Sort-Object)) { $ordered[$key] = $State[$key] }
+    $json = New-Object psobject -Property $ordered | ConvertTo-Json
+    [IO.File]::WriteAllText($BuildStatePath, $json, (New-Object System.Text.UTF8Encoding($false)))
+}
+
+function Get-TextHash([string]$Text) {
+    $sha = [Security.Cryptography.SHA256]::Create()
+    try { $bytes = $sha.ComputeHash([Text.Encoding]::UTF8.GetBytes($Text)) } finally { $sha.Dispose() }
+    return (-join ($bytes | ForEach-Object { $_.ToString('x2') }))
+}
+
+# Hash of every file that goes into an image (same exclusions as the .dockerignore files).
+function Get-SourceHash([string]$Dir) {
+    $base = (Resolve-Path -LiteralPath (Join-Path $Root $Dir)).Path
+    $skip = '[\\/](node_modules|dist|__pycache__|\.venv|\.pytest_cache|\.ruff_cache)([\\/]|$)'
+    $lines = New-Object 'System.Collections.Generic.List[string]'
+    $files = Get-ChildItem -LiteralPath $base -Recurse -File -Force -ErrorAction SilentlyContinue
+    foreach ($f in $files) {
+        $rel = $f.FullName.Substring($base.Length).Replace('\', '/')
+        if ($rel -match $skip -or $f.Name -match '\.(pyc|db|log)$' -or $f.Name -eq '.env') { continue }
+        $hash = (Get-FileHash -LiteralPath $f.FullName -Algorithm SHA256).Hash
+        $lines.Add("$rel`t$hash")
+    }
+    $lines.Sort([StringComparer]::Ordinal)
+    return (Get-TextHash ($lines -join "`n"))
+}
+
+function Test-ImageExists([string]$Image) {
+    return ((Invoke-Quiet 'docker' @('image', 'inspect', '--format', '{{.Id}}', $Image)).Code -eq 0)
+}
+
+function Update-Images {
+    Write-Step 'Checking which images need rebuilding'
+    $state = Read-BuildState
+    $built = 0
+    foreach ($item in $ImagePlan) {
+        $hash = Get-SourceHash $item.Dir
+        if ($ForceBuild) { $reason = 'rebuild requested (--rebuild)' }
+        elseif (-not (Test-ImageExists $item.Image)) { $reason = 'image not built yet' }
+        elseif (-not $state.ContainsKey($item.Name)) { $reason = 'no build record yet (one-time check; cached layers are reused)' }
+        elseif ($state[$item.Name] -ne $hash) { $reason = 'source files changed' }
+        else {
+            Write-Ok "$($item.Name): up to date, no rebuild needed"
+            continue
+        }
+        Write-Info "$($item.Name): building ($reason). Dependencies are reinstalled only if their lock file changed."
+        $code = Invoke-Compose @('build', $item.Service)
+        if ($code -ne 0) { throw "Building the $($item.Name) image failed (exit code $code). See the messages above." }
+        $state[$item.Name] = $hash
+        Save-BuildState $state
+        Write-Ok "$($item.Name): image rebuilt"
+        $built++
+    }
+    if ($built -eq 0) { Write-Info 'Nothing to rebuild: starting the existing images.' }
+}
+
 # ----------------------------------------------------------- .env and files
 function Read-DotEnv {
     $map = @{}
@@ -573,8 +674,9 @@ function Wait-Healthy([int]$Seconds = 360) {
 }
 
 function Start-Stack {
-    Write-Step 'Building and starting BOP Evolve (the first run downloads images and can take 5-10 minutes)'
-    $code = Invoke-Compose @('up', '-d', '--build', '--remove-orphans')
+    Update-Images
+    Write-Step 'Starting BOP Evolve (containers are recreated only when their image or settings changed)'
+    $code = Invoke-Compose @('up', '-d', '--no-build', '--remove-orphans')
     if ($code -ne 0) { throw "docker compose up failed (exit code $code). See the messages above, or run 'bop-evolve.bat logs'." }
     Wait-Healthy
 }
@@ -587,7 +689,10 @@ function Show-Summary {
     Write-Host '  BOP Evolve is running.' -ForegroundColor Green
     Write-Host "    Web app      http://localhost:$($script:WebPort)" -ForegroundColor White
     Write-Host "    API docs     http://localhost:$($script:ApiPort)/docs" -ForegroundColor White
+    $hrPassword = $config['HR_CHIEF_PASSWORD']
+    if (-not $hrPassword) { $hrPassword = '123' }
     Write-Host "    Sign in      superadmin / $password   (other demo roles are listed on the sign-in page)" -ForegroundColor White
+    Write-Host "                 hr.chief / $hrPassword   (Chief HR Officer, starts with the guided tour)" -ForegroundColor White
     Write-Host '    Stop         bop-evolve.bat stop      Logs: bop-evolve.bat logs      Status: bop-evolve.bat status' -ForegroundColor Gray
     Write-Host '    Demo data is synthetic. Never connect this prototype to production systems.' -ForegroundColor Gray
 }
@@ -623,24 +728,195 @@ function Initialize-Node {
 function Start-Desktop {
     Initialize-Node
     Write-Step 'Preparing the desktop app'
+    $state = Read-BuildState
     foreach ($dir in @('frontend', 'desktop')) {
         $full = Join-Path $Root $dir
-        if (Test-Path (Join-Path $full 'node_modules')) {
-            Write-Ok "$dir dependencies are installed"
+        $lock = Join-Path $full 'package-lock.json'
+        $lockHash = ''
+        if (Test-Path $lock) { $lockHash = (Get-FileHash -LiteralPath $lock -Algorithm SHA256).Hash }
+        $key = "npm:$dir"
+        $installed = Join-Path $full 'node_modules/.package-lock.json'
+        $current = $false
+        if (Test-Path $installed) {
+            if ($state.ContainsKey($key)) { $current = ($state[$key] -eq $lockHash) }
+            else {
+                # No record yet: npm's own install marker is newer than the lock file when it is current.
+                $current = ((Get-Item -LiteralPath $installed).LastWriteTimeUtc -ge (Get-Item -LiteralPath $lock).LastWriteTimeUtc)
+                if ($current) { $state[$key] = $lockHash; Save-BuildState $state }
+            }
+        }
+        if ($current) {
+            Write-Ok "$dir dependencies are up to date"
             continue
         }
-        Write-Info "Installing $dir dependencies (npm ci)..."
+        Write-Info "Installing $dir dependencies (npm ci; package-lock.json changed or first install)..."
         $previous = $ErrorActionPreference
         $ErrorActionPreference = 'Continue'
         try { & npm --prefix $full ci --no-audit --no-fund | Out-Host }
         finally { $ErrorActionPreference = $previous }
         if ($LASTEXITCODE -ne 0) { throw "npm ci failed in $dir (exit code $LASTEXITCODE)." }
+        $state[$key] = $lockHash
+        Save-BuildState $state
         Write-Ok "$dir dependencies installed"
     }
     $env:BOP_EVOLVE_SERVER_URL = "http://localhost:$($script:ApiPort)"
     Write-Info "Opening the desktop app in a new window (server $env:BOP_EVOLVE_SERVER_URL)..."
     $npm = (Get-Command npm).Source
     Start-Process -FilePath $npm -ArgumentList @('--prefix', ('"' + (Join-Path $Root 'desktop') + '"'), 'start') -WorkingDirectory $Root | Out-Null
+}
+
+# ------------------------------------------------------------------- update
+function Initialize-Git {
+    Update-SessionPath
+    $gitCmd = ''
+    if ($IsWindowsHost -and $env:ProgramFiles) { $gitCmd = Join-Path $env:ProgramFiles 'Git\cmd' }
+    if ($gitCmd -and (Test-Path $gitCmd) -and ($env:Path -notlike "*$gitCmd*")) { $env:Path = "$env:Path;$gitCmd" }
+    if (-not (Get-Command git -ErrorAction SilentlyContinue)) {
+        if (-not $IsWindowsHost -or -not (Get-Command winget -ErrorAction SilentlyContinue)) {
+            throw 'Git is not installed. Install Git for Windows from https://git-scm.com/download/win and run this file again.'
+        }
+        if (-not (Confirm-Action 'Git is needed to download updates. Install Git for Windows with winget?')) {
+            throw 'Git is required for "update".'
+        }
+        $previous = $ErrorActionPreference
+        $ErrorActionPreference = 'Continue'
+        try { & winget install --exact --id Git.Git --accept-package-agreements --accept-source-agreements | Out-Host }
+        finally { $ErrorActionPreference = $previous }
+        Update-SessionPath
+        if ($gitCmd -and (Test-Path $gitCmd) -and ($env:Path -notlike "*$gitCmd*")) { $env:Path = "$env:Path;$gitCmd" }
+        if (-not (Get-Command git -ErrorAction SilentlyContinue)) {
+            throw 'Git was installed but is not on PATH in this window yet. Close it and run the file again.'
+        }
+    }
+    Write-Ok "$(Get-LastLine (Invoke-Quiet 'git' @('--version')).Output)"
+}
+
+# Git command whose output is only needed by the script.
+function Invoke-GitQuiet([string[]]$Arguments) {
+    return (Invoke-Quiet 'git' (@('-c', 'core.quotepath=off') + $Arguments))
+}
+
+# Git command that may need the person (for example a GitHub sign-in window).
+function Invoke-GitLive([string[]]$Arguments) {
+    $previous = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
+    try {
+        $global:LASTEXITCODE = 0
+        & git @Arguments 2>&1 | ForEach-Object { Write-Info "$_" }
+        return $LASTEXITCODE
+    } finally {
+        $ErrorActionPreference = $previous
+    }
+}
+
+function Get-Lines([string]$Text) {
+    return @($Text -split "`r?`n" | Where-Object { $_.Trim() })
+}
+
+function Invoke-Fetch {
+    Write-Info "Downloading changes from $RepoUrl ($Branch). If a GitHub sign-in window opens, sign in with an account that can access the repository."
+    $code = Invoke-GitLive @('fetch', '--prune', 'origin', $Branch)
+    if ($code -ne 0) {
+        throw "Could not download from GitHub (exit code $code). Check the internet connection and that your GitHub account has access to $RepoUrl, then run 'bop-evolve.bat update' again."
+    }
+}
+
+# Move files out of the working tree into .bop-backup\<time>\, keeping their paths.
+function Backup-Files([string[]]$Paths, [string]$Folder, [switch]$Move) {
+    foreach ($rel in $Paths) {
+        $source = Join-Path $Root $rel
+        if (-not (Test-Path -LiteralPath $source -PathType Leaf)) { continue }
+        $target = Join-Path $Folder $rel
+        $parent = Split-Path -Parent $target
+        if (-not (Test-Path -LiteralPath $parent)) { New-Item -ItemType Directory -Path $parent -Force | Out-Null }
+        if ($Move) { Move-Item -LiteralPath $source -Destination $target -Force }
+        else { Copy-Item -LiteralPath $source -Destination $target -Force }
+    }
+}
+
+# First update of a folder that was downloaded as a ZIP: connect it to GitHub in place.
+function Convert-ToCheckout {
+    Write-Info 'This folder is not a Git checkout (it was probably downloaded as a ZIP).'
+    Write-Info 'It will be connected to GitHub so that future updates download only what changed.'
+    Write-Info 'Your .env, .certs and demo data are kept. Files that are replaced, or that no longer exist'
+    Write-Info 'in the new version, are moved to .bop-backup first.'
+    if (-not (Confirm-Action "Connect this folder to $RepoUrl and update it to the latest $Branch?")) { throw 'Update cancelled.' }
+    $gitDir = Join-Path $Root '.git'
+    if ((Invoke-GitQuiet @('init', '-q')).Code -ne 0) { throw 'git init failed in this folder.' }
+    [void](Invoke-GitQuiet @('remote', 'add', 'origin', $RepoUrl))
+    try {
+        Invoke-Fetch
+    } catch {
+        Remove-Item -LiteralPath $gitDir -Recurse -Force -ErrorAction SilentlyContinue
+        throw
+    }
+    # Load the new version into the index, then compare it with the files on disk.
+    if ((Invoke-GitQuiet @('read-tree', "origin/$Branch")).Code -ne 0) { throw "Could not read origin/$Branch." }
+    $changed = Get-Lines (Invoke-GitQuiet @('diff', '--name-only')).Output
+    $extra = Get-Lines (Invoke-GitQuiet @('ls-files', '--others', '--exclude-standard', '--', '.', ':(exclude).bop-backup', ':(exclude).bop-build-state.json')).Output
+    $stamp = Get-Date -Format 'yyyyMMdd-HHmmss'
+    $folder = Join-Path $BackupRoot $stamp
+    if ($changed.Count -gt 0) { Backup-Files $changed $folder }
+    if ($extra.Count -gt 0) { Backup-Files $extra $folder -Move }
+    $code = Invoke-GitLive @('checkout', '-f', '-B', $Branch, "origin/$Branch")
+    if ($code -ne 0) { throw "git checkout failed (exit code $code). Your previous files are in $folder." }
+    [void](Invoke-GitQuiet @('branch', "--set-upstream-to=origin/$Branch", $Branch))
+    Write-Ok "Folder connected to GitHub and updated to $Branch"
+    if ($changed.Count -gt 0 -or $extra.Count -gt 0) {
+        Write-Info "$($changed.Count) file(s) updated and $($extra.Count) old file(s) removed; previous copies are in .bop-backup\$stamp"
+    }
+}
+
+function Update-Checkout {
+    $dirty = Get-Lines (Invoke-GitQuiet @('status', '--porcelain', '--untracked-files=no')).Output
+    if ($dirty.Count -gt 0) {
+        Write-Warn 'These project files were changed on this computer:'
+        $dirty | Select-Object -First 15 | ForEach-Object { Write-Info "  $_" }
+        if (-not (Confirm-Action 'Put these changes aside with "git stash" (you can restore them later with "git stash pop") and continue?')) {
+            throw 'Update cancelled: local changes were left untouched.'
+        }
+        $code = Invoke-GitLive @('stash', 'push', '-m', "bop-evolve update $(Get-Date -Format 'yyyy-MM-dd HH:mm')")
+        if ($code -ne 0) { throw 'git stash failed; nothing was changed.' }
+        Write-Ok 'Local changes saved with git stash'
+    }
+    $remotes = Get-Lines (Invoke-GitQuiet @('remote')).Output
+    if ($remotes -notcontains 'origin') { [void](Invoke-GitQuiet @('remote', 'add', 'origin', $RepoUrl)) }
+    Invoke-Fetch
+    $current = Get-LastLine (Invoke-GitQuiet @('rev-parse', '--abbrev-ref', 'HEAD')).Output
+    if ($current -ne $Branch) {
+        $hasLocal = (Invoke-GitQuiet @('rev-parse', '--verify', '--quiet', "refs/heads/$Branch")).Code -eq 0
+        if ($hasLocal) { $code = Invoke-GitLive @('checkout', $Branch) }
+        else { $code = Invoke-GitLive @('checkout', '-b', $Branch, '--track', "origin/$Branch") }
+        if ($code -ne 0) { throw "Could not switch to the $Branch branch." }
+    }
+    $head = Get-LastLine (Invoke-GitQuiet @('rev-parse', 'HEAD')).Output
+    $remote = Get-LastLine (Invoke-GitQuiet @('rev-parse', "origin/$Branch")).Output
+    if ($head -eq $remote) {
+        Write-Ok "Already up to date with $Branch"
+        return
+    }
+    if ((Invoke-GitQuiet @('merge-base', '--is-ancestor', "origin/$Branch", 'HEAD')).Code -eq 0) {
+        Write-Warn "This copy has commits that are not on GitHub yet; nothing to download."
+        return
+    }
+    $code = Invoke-GitLive @('merge', '--ff-only', "origin/$Branch")
+    if ($code -ne 0) {
+        throw "This copy and GitHub have both changed (diverged), so it cannot be updated automatically. Ask a developer to merge, or move this folder aside and run update in a fresh download."
+    }
+    Write-Ok "Updated to the latest $Branch"
+    Write-Host ''
+    Write-Info 'What changed:'
+    Get-Lines (Invoke-GitQuiet @('log', '--oneline', '--no-decorate', '-n', '15', "$head..HEAD")).Output | ForEach-Object { Write-Info "  $_" }
+    $stat = Get-LastLine (Invoke-GitQuiet @('diff', '--shortstat', $head, 'HEAD')).Output
+    if ($stat) { Write-Info "  $stat" }
+    $launcher = Get-Lines (Invoke-GitQuiet @('diff', '--name-only', $head, 'HEAD', '--', 'bop-evolve.bat')).Output
+    if ($launcher.Count -gt 0) { Write-Info '  The launcher itself was updated; the new version is used from the next run.' }
+}
+
+function Update-Code {
+    Write-Step "Getting the latest version from GitHub ($Branch)"
+    Initialize-Git
+    if (Test-Path (Join-Path $Root '.git')) { Update-Checkout } else { Convert-ToCheckout }
 }
 
 function Open-Browser {
@@ -697,12 +973,18 @@ function Invoke-Main {
         }
     }
 
-    # start | desktop | reset
-    $systemOk = Test-System
-    if (-not $systemOk -and -not (Confirm-Action 'Some required checks failed. Continue anyway?')) {
-        throw 'Stopped after failed system checks.'
+    if ($Command -eq 'update') {
+        # Get the code first: if downloading fails, the running version is left untouched.
+        Update-Code
+        [void](Initialize-Docker)
+    } else {
+        # start | desktop | reset
+        $systemOk = Test-System
+        if (-not $systemOk -and -not (Confirm-Action 'Some required checks failed. Continue anyway?')) {
+            throw 'Stopped after failed system checks.'
+        }
+        [void](Initialize-Docker)
     }
-    [void](Initialize-Docker)
     Initialize-Project
     if ($Command -eq 'reset') {
         Write-Step 'Reset'
